@@ -93,13 +93,14 @@ $body = @{
 
 $rel        = Invoke-RestMethod -Method Post -Headers $headers -ContentType "application/json" `
                 -Uri "https://api.github.com/repos/$repo/releases" -Body $body
-$uploadBase = $rel.upload_url -replace '\{.*\}', ''
+# Build the upload URL from the release id (the upload_url template is fiddly to parse).
+$uploadBase = "https://uploads.github.com/repos/$repo/releases/$($rel.id)/assets"
 
 # ── 6. Upload both assets ────────────────────────────────────────────────────
 foreach ($asset in @("CastDriver.exe", "CastDriver-standalone.exe")) {
     Write-Host "Uploading $asset..." -ForegroundColor Cyan
     Invoke-RestMethod -Method Post -Headers $headers -ContentType "application/octet-stream" `
-        -Uri "$uploadBase?name=$asset" -InFile "$dist/$asset" | Out-Null
+        -Uri ("{0}?name={1}" -f $uploadBase, $asset) -InFile "$dist/$asset" | Out-Null
 }
 
 Write-Host "`nReleased: $($rel.html_url)" -ForegroundColor Green
