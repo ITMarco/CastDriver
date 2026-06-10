@@ -222,14 +222,7 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         _ = RestartCastsAsync(() => { _manager.Mp3Bitrate = value; return Task.CompletedTask; });
     }
 
-    // "Now casting" title: the actual current track (SMTC) if anything is playing, else
-    // the app name for an app source, else null (the manager falls back to the PC name).
-    private async Task<string?> ResolveTitleAsync()
-    {
-        var song = await NowPlaying.GetTitleAsync();
-        return !string.IsNullOrWhiteSpace(song) ? song : TitleFor(SelectedSource);
-    }
-
+    // "Now casting" title: the app name for an app source, else null (manager → PC name).
     private static string? TitleFor(AudioEndpointInfo? source) =>
         source is { Kind: SourceKind.App } ? source.Name : null;
 
@@ -370,7 +363,7 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         vm.HasError     = false;
         try
         {
-            _manager.NowPlayingTitle = await ResolveTitleAsync();
+            _manager.NowPlayingTitle = TitleFor(SelectedSource);
             await _manager.CastToDeviceAsync(vm.Device);
             vm.IsCasting = true;
         }

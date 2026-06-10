@@ -145,7 +145,6 @@ public sealed class DlnaSession : ICastSession
         "<item id=\"0\" parentID=\"-1\" restricted=\"1\">" +
         $"<dc:title>{Xml(media.Title)}</dc:title>" +
         "<upnp:class>object.item.audioItem.musicTrack</upnp:class>" +
-        $"<upnp:albumArtURI>{Xml(media.ArtUrl)}</upnp:albumArtURI>" +
         $"<res protocolInfo=\"http-get:*:{media.ContentType}:*\">{Xml(media.Url)}</res>" +
         "</item></DIDL-Lite>";
 
