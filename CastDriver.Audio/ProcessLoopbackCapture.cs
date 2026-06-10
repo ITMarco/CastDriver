@@ -12,6 +12,7 @@ public sealed class ProcessLoopbackCapture : ICaptureSource
     public event EventHandler<WaveInEventArgs>? DataAvailable;
 
     private readonly uint _pid;
+    private readonly bool _exclude; // true = capture everything EXCEPT this process tree
     private IAudioClient?        _client;
     private IAudioCaptureClient? _capture;
     private Thread?              _thread;
@@ -20,7 +21,11 @@ public sealed class ProcessLoopbackCapture : ICaptureSource
     private readonly ManualResetEventSlim _started = new(false);
     private Exception? _startError;
 
-    public ProcessLoopbackCapture(uint processId) => _pid = processId;
+    public ProcessLoopbackCapture(uint processId, bool exclude = false)
+    {
+        _pid     = processId;
+        _exclude = exclude;
+    }
 
     public void Start()
     {
@@ -39,7 +44,7 @@ public sealed class ProcessLoopbackCapture : ICaptureSource
     {
         try
         {
-            _client  = ActivateForProcess(_pid);
+            _client  = ActivateForProcess(_pid, _exclude);
             InitializeClient(_client);
 
             var capIid = IID_IAudioCaptureClient;
@@ -121,13 +126,15 @@ public sealed class ProcessLoopbackCapture : ICaptureSource
 
     // ── Activation ─────────────────────────────────────────────────────────────
 
-    private static IAudioClient ActivateForProcess(uint pid)
+    private static IAudioClient ActivateForProcess(uint pid, bool exclude)
     {
         var prms = new AudioClientActivationParams
         {
             ActivationType      = AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK,
             TargetProcessId     = pid,
-            ProcessLoopbackMode = PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE,
+            ProcessLoopbackMode = exclude
+                ? PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE
+                : PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE,
         };
         var pBlob = Marshal.AllocHGlobal(Marshal.SizeOf<AudioClientActivationParams>());
         var pProp = Marshal.AllocHGlobal(Marshal.SizeOf<PropVariantBlob>());
@@ -180,6 +187,7 @@ public sealed class ProcessLoopbackCapture : ICaptureSource
     private const uint   AUDCLNT_BUFFERFLAGS_SILENT        = 0x2;
     private const int    AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK = 1;
     private const int    PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE = 0;
+    private const int    PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE = 1;
     private const ushort VT_BLOB = 65;
 
     private static Guid IID_IAudioClient        = new("1CB9AD4C-DBFA-4c32-B178-C2F568A703B2");

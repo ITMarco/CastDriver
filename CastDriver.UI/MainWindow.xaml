@@ -167,14 +167,46 @@
             <StackPanel Margin="16,12,16,0">
                 <TextBlock Text="SOURCE" Style="{StaticResource LabelStyle}" Margin="0,0,0,6"/>
                 <ComboBox Style="{StaticResource DarkComboBox}"
-                          ItemsSource="{Binding Sources}"
+                          ItemsSource="{Binding SourcesView}"
                           SelectedItem="{Binding SelectedSource, Mode=TwoWay}"
-                          DisplayMemberPath="DisplayName"/>
+                          DisplayMemberPath="DisplayName">
+                    <ComboBox.GroupStyle>
+                        <GroupStyle>
+                            <GroupStyle.HeaderTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Name}"
+                                               Style="{StaticResource LabelStyle}"
+                                               Margin="8,6,0,2"/>
+                                </DataTemplate>
+                            </GroupStyle.HeaderTemplate>
+                        </GroupStyle>
+                    </ComboBox.GroupStyle>
+                </ComboBox>
+
+                <!-- Exclude-app option: cast everything EXCEPT the chosen app -->
+                <CheckBox Content="Cast everything except this app"
+                          IsChecked="{Binding ExcludeApp, Mode=TwoWay}"
+                          FontSize="12" Margin="2,8,0,0"
+                          Visibility="{Binding IsAppSelected, Converter={StaticResource BoolVis}}"/>
 
                 <TextBlock Text="FORMAT" Style="{StaticResource LabelStyle}" Margin="0,10,0,6"/>
                 <ComboBox Style="{StaticResource DarkComboBox}"
                           ItemsSource="{Binding CodecOptions}"
                           SelectedItem="{Binding SelectedCodec, Mode=TwoWay}"/>
+
+                <!-- MP3 bitrate (only relevant for MP3) -->
+                <Grid Margin="0,8,0,0"
+                      Visibility="{Binding IsMp3, Converter={StaticResource BoolVis}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Bitrate" Style="{StaticResource SmallStyle}"
+                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <ComboBox Grid.Column="1" Style="{StaticResource DarkComboBox}"
+                              ItemsSource="{Binding Bitrates}"
+                              SelectedItem="{Binding SelectedBitrate, Mode=TwoWay}"/>
+                </Grid>
 
                 <Grid Margin="0,12,0,0">
                     <Grid.ColumnDefinitions>
@@ -290,10 +322,10 @@
                         <TextBlock Margin="0,1,0,0">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource SmallStyle}">
-                                    <Setter Property="Text" Value="Speakers on, cast at full volume"/>
+                                    <Setter Property="Text" Value="PC speakers play along with the cast"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsCastOnlyMode}" Value="True">
-                                            <Setter Property="Text" Value="Speakers muted, cast boosted"/>
+                                            <Setter Property="Text" Value="PC speakers silenced — only the cast plays"/>
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>

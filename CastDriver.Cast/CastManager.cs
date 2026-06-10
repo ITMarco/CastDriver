@@ -31,6 +31,10 @@ public sealed class CastManager : IAsyncDisposable
     // "Now casting" title shown on receivers (e.g. the app name). Falls back to the PC name.
     public string? NowPlayingTitle { get; set; }
 
+    // When an app source is selected: false = cast only that app; true = cast everything
+    // except that app (e.g. mute notifications / a meeting from the cast).
+    public bool ExcludeApp { get; set; }
+
     // Prebuffer / latency cushion in ms (forwarded to the media server).
     public int PrebufferMs
     {
@@ -92,8 +96,8 @@ public sealed class CastManager : IAsyncDisposable
 
         if (AudioCapture.IsAppId(SourceDeviceId, out var pid))
         {
-            Log.Write($"[audio] process-loopback capture for pid {pid}");
-            _capture = new ProcessLoopbackCapture(pid);
+            Log.Write($"[audio] process-loopback capture for pid {pid} (exclude={ExcludeApp})");
+            _capture = new ProcessLoopbackCapture(pid, ExcludeApp);
         }
         else
         {

@@ -17,6 +17,9 @@ public sealed record AudioEndpointInfo(string Id, string Name, SourceKind Kind, 
         _                => "🔊 " + Name,
     };
 
+    // Grouping for the source dropdown: devices on top, applications below a divider.
+    public string Category => Kind == SourceKind.App ? "Applications" : "Devices";
+
     public override string ToString() => DisplayName;
 }
 

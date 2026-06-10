@@ -32,6 +32,9 @@ public sealed class AppSettings
     // Stream prebuffer in ms — the latency/stability cushion (lower = less lag).
     public int PrebufferMs { get; set; } = 1500;
 
+    // For an app source: cast everything EXCEPT the chosen app (instead of only it).
+    public bool ExcludeApp { get; set; }
+
     private static string Dir =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "CastDriver");
 

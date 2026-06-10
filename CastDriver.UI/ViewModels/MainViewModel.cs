@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Windows.Data;
 using System.Windows.Threading;
 using WpfApp = System.Windows.Application;
 using CastDriver.Audio;
@@ -34,11 +36,23 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private bool    _updateAvailable;
     [ObservableProperty] private string  _updateText = "";
     [ObservableProperty] private double  _latencyMs = 1500;
+    [ObservableProperty] private bool    _excludeApp;
+    [ObservableProperty] private int     _selectedBitrate = 256;
     private string _updateUrl = "";
+
+    private readonly CollectionViewSource _sourcesView = new();
+    public ICollectionView SourcesView => _sourcesView.View;
+
+    public IReadOnlyList<int> Bitrates { get; } = [128, 192, 256, 320];
 
     public string VolumeLabel  => $"{(int)Volume}%";
     public string AppVersion   => AppInfo.Display;
     public string LatencyLabel => $"{(int)LatencyMs} ms";
+
+    // An app source is selected → show the "exclude this app" option.
+    public bool IsAppSelected => SelectedSource?.Kind == SourceKind.App;
+    // MP3 codec selected → show the bitrate selector.
+    public bool IsMp3 => SelectedCodec == Mp3Option;
 
     public MainViewModel()
     {
@@ -50,7 +64,14 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         _manager.Codec                = _settings.UseMp3 ? StreamCodec.Mp3 : StreamCodec.Wav;
         _manager.Mp3Bitrate           = _settings.Mp3Bitrate;
         _manager.PrebufferMs          = _settings.PrebufferMs;
+        _manager.ExcludeApp           = _settings.ExcludeApp;
         _latencyMs                    = _settings.PrebufferMs;
+        _excludeApp                   = _settings.ExcludeApp;
+        _selectedBitrate              = _settings.Mp3Bitrate;
+
+        // Group the source dropdown: Devices, then Applications.
+        _sourcesView.Source = Sources;
+        _sourcesView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(AudioEndpointInfo.Category)));
         _manager.DeviceDiscovered    += OnDeviceDiscovered;
         _manager.DeviceLost          += OnDeviceLost;
         _manager.SessionError        += (_, msg) => UpdateDiscoveryStatus(msg);
@@ -89,7 +110,7 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     private void LoadSources()
     {
-        Sources = new ObservableCollection<AudioEndpointInfo>(AudioCapture.ListEndpoints());
+        PopulateSources();
         SelectedSource = Sources.FirstOrDefault(s => s.Id == _settings.SourceDeviceId)
                       ?? Sources.FirstOrDefault();
     }
@@ -100,8 +121,15 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
     public void RefreshSources()
     {
         var currentId = SelectedSource?.Id;
-        Sources = new ObservableCollection<AudioEndpointInfo>(AudioCapture.ListEndpoints());
+        PopulateSources();
         SelectedSource = Sources.FirstOrDefault(s => s.Id == currentId) ?? Sources.FirstOrDefault();
+    }
+
+    // Refill the existing collection (don't replace it — the grouped view binds to it).
+    private void PopulateSources()
+    {
+        Sources.Clear();
+        foreach (var e in AudioCapture.ListEndpoints()) Sources.Add(e);
     }
 
     // ── Stream format / codec ──────────────────────────────────────────────────
@@ -112,6 +140,7 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     partial void OnSelectedCodecChanged(string value)
     {
+        OnPropertyChanged(nameof(IsMp3));
         if (_initializing) return;
         var useMp3 = value == Mp3Option;
         _settings.UseMp3 = useMp3;
@@ -159,6 +188,7 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     partial void OnSelectedSourceChanged(AudioEndpointInfo? value)
     {
+        OnPropertyChanged(nameof(IsAppSelected));
         if (value == null || _initializing) return;
         if (value.Id == _settings.SourceDeviceId) return; // no real change (e.g. a refresh)
 
@@ -172,7 +202,34 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         });
     }
 
-    // "Now casting" title: the app name for an app source, else null (manager uses PC name).
+    // ── App include/exclude + bitrate ──────────────────────────────────────────
+
+    partial void OnExcludeAppChanged(bool value)
+    {
+        if (_initializing) return;
+        _settings.ExcludeApp = value;
+        _settings.Save();
+        _manager.ExcludeApp = value;
+        if (SelectedSource is { Kind: SourceKind.App } app)
+            _ = RestartCastsAsync(() => _manager.SetSourceDeviceAsync(app.Id));
+    }
+
+    partial void OnSelectedBitrateChanged(int value)
+    {
+        if (_initializing) return;
+        _settings.Mp3Bitrate = value;
+        _settings.Save();
+        _ = RestartCastsAsync(() => { _manager.Mp3Bitrate = value; return Task.CompletedTask; });
+    }
+
+    // "Now casting" title: the actual current track (SMTC) if anything is playing, else
+    // the app name for an app source, else null (the manager falls back to the PC name).
+    private async Task<string?> ResolveTitleAsync()
+    {
+        var song = await NowPlaying.GetTitleAsync();
+        return !string.IsNullOrWhiteSpace(song) ? song : TitleFor(SelectedSource);
+    }
+
     private static string? TitleFor(AudioEndpointInfo? source) =>
         source is { Kind: SourceKind.App } ? source.Name : null;
 
@@ -313,6 +370,7 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         vm.HasError     = false;
         try
         {
+            _manager.NowPlayingTitle = await ResolveTitleAsync();
             await _manager.CastToDeviceAsync(vm.Device);
             vm.IsCasting = true;
         }
