@@ -173,21 +173,10 @@ public sealed class LocalMediaServer : IAsyncDisposable
                   $"dropped={dropped} clients={_clients.Count}");
     }
 
-    // Returns the URL the Chromecast should request. The device id is a PATH segment (not
-    // a query) so the filename keeps its .wav/.mp3 extension — receivers sniff the extension
-    // and refuse to fetch "audio.wav?dev=…".
-    public string GetStreamUrl(string localIp, string deviceId) =>
-        $"http://{localIp}:{Port}/{Uri.EscapeDataString(deviceId)}/{FileName}";
-    public string GetArtUrl(string localIp) => $"http://{localIp}:{Port}/art.png";
-
-    // Request line: "GET /<deviceId>/audio.wav HTTP/1.1" → the device id (first path segment).
-    private static string ParseDev(string requestLine)
-    {
-        var parts = requestLine.Split(' ');
-        if (parts.Length < 2) return "";
-        var segs = parts[1].Trim('/').Split('/');
-        return segs.Length >= 2 ? Uri.UnescapeDataString(segs[0]) : "";
-    }
+    // Plain stream URL — no per-device token (receivers are fussy about non-standard URLs).
+    // We identify a device by the IP it connects from instead (see ServeClientAsync).
+    public string GetStreamUrl(string localIp) => $"http://{localIp}:{Port}/{FileName}";
+    public string GetArtUrl(string localIp)    => $"http://{localIp}:{Port}/art.png";
 
     public Task RunAsync() => RunAsync(_cts.Token);
 
@@ -227,7 +216,8 @@ public sealed class LocalMediaServer : IAsyncDisposable
         {
             FullMode = BoundedChannelFullMode.DropOldest,
         });
-        _clients[clientId] = new Client { Channel = channel, DeviceId = ParseDev(requestLine) };
+        var remoteIp = (tcp.Client.RemoteEndPoint as IPEndPoint)?.Address.ToString() ?? "";
+        _clients[clientId] = new Client { Channel = channel, DeviceId = remoteIp };
 
         long sent = 0;
         try
