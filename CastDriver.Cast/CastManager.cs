@@ -179,7 +179,7 @@ public sealed class CastManager : IAsyncDisposable
 
         var localIp  = GetLocalIpFor(device.Host);
         var media    = new CastMedia(
-            _mediaServer.GetStreamUrl(localIp), _mediaServer.ContentType,
+            _mediaServer.GetStreamUrl(localIp, device.Id), _mediaServer.ContentType,
             NowPlayingTitle is { Length: > 0 } t ? t : $"CastDriver — {Environment.MachineName}",
             _mediaServer.GetArtUrl(localIp));
         Log.Write($"[cast] {device.Kind} '{device.Name}' local IP {localIp}; stream URL = {media.Url}");
@@ -244,6 +244,11 @@ public sealed class CastManager : IAsyncDisposable
         if (_sessions.TryGetValue(device.Id, out var session))
             await session.SetVolumeAsync(level);
     }
+
+    // Mute/unmute a device by feeding it silence (no volume change, resumes at the same
+    // level). Works on devices that don't support volume control.
+    public void SetDeviceMute(ICastDevice device, bool muted) =>
+        _mediaServer.SetMuted(device.Id, muted);
 
     // Stop casting to a specific device.
     public async Task StopCastingAsync(ICastDevice device)

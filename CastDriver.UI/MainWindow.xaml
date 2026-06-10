@@ -495,13 +495,37 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="🔊" FontSize="12"
-                                               VerticalAlignment="Center" Margin="0,0,8,0"
-                                               Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    <Button Grid.Column="0"
+                                            Style="{StaticResource IconButtonStyle}"
+                                            Command="{Binding ToggleDeviceMuteCommand}"
+                                            Width="26" Height="26" Margin="0,0,6,0"
+                                            ToolTip="Mute this device">
+                                        <TextBlock FontSize="13">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="🔊"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsDeviceMuted}" Value="True">
+                                                            <Setter Property="Text" Value="🔇"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Button>
                                     <Slider Grid.Column="1"
                                             Value="{Binding Volume, Mode=TwoWay}"
-                                            Style="{StaticResource VolumeSliderStyle}"
-                                            Height="18" VerticalAlignment="Center"/>
+                                            Height="18" VerticalAlignment="Center">
+                                        <Slider.Style>
+                                            <Style TargetType="Slider" BasedOn="{StaticResource VolumeSliderStyle}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsDeviceMuted}" Value="True">
+                                                        <Setter Property="Opacity" Value="0.4"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Slider.Style>
+                                    </Slider>
                                     <TextBlock Grid.Column="2" Text="{Binding VolumeLabel}"
                                                Style="{StaticResource SmallStyle}"
                                                VerticalAlignment="Center" Margin="8,0,0,0"

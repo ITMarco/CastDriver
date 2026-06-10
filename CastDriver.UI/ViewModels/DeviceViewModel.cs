@@ -1,5 +1,6 @@
 using CastDriver.Cast;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 
 namespace CastDriver.UI.ViewModels;
 
@@ -19,8 +20,14 @@ public partial class DeviceViewModel : ObservableObject
     [ObservableProperty] private bool   _hasError;
     [ObservableProperty] private string _errorText = "";
     [ObservableProperty] private double _volume = 100;   // this device's own volume (0–100)
+    [ObservableProperty] private bool   _isDeviceMuted;   // mute via silence stream
 
     public string VolumeLabel => $"{(int)Volume}%";
+
+    partial void OnIsDeviceMutedChanged(bool value) => _manager.SetDeviceMute(Device, value);
+
+    [RelayCommand]
+    private void ToggleDeviceMute() => IsDeviceMuted = !IsDeviceMuted;
 
     public DeviceViewModel(ICastDevice device, CastManager manager)
     {

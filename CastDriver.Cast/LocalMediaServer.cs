@@ -14,11 +14,29 @@ namespace CastDriver.Cast;
 public sealed class LocalMediaServer : IAsyncDisposable
 {
     private readonly TcpListener _listener;
-    private readonly ConcurrentDictionary<Guid, Channel<byte[]>> _clients = new();
+    private readonly ConcurrentDictionary<Guid, Client> _clients = new();
+    private readonly ConcurrentDictionary<string, byte> _muted = new(); // device ids muted
     private WaveFormat? _waveFormat;
     private StreamCodec _codec = StreamCodec.Wav;
     private Mp3StreamEncoder? _mp3;
+    private Mp3StreamEncoder? _mp3Silence; // produces silence frames for muted MP3 clients
+    private byte[]            _zero = [];   // reusable zero buffer for WAV silence
     private CancellationTokenSource _cts = new();
+
+    // One connected receiver. DeviceId comes from the "?dev=" query so we can mute it.
+    private sealed class Client
+    {
+        public required Channel<byte[]> Channel;
+        public string DeviceId = "";
+    }
+
+    // Per-device mute: muted devices receive silence instead of real audio, at the same
+    // byte rate, so they stay in sync and resume instantly (no volume change involved).
+    public void SetMuted(string deviceId, bool muted)
+    {
+        if (muted) _muted[deviceId] = 1;
+        else       _muted.TryRemove(deviceId, out _);
+    }
 
     // What clients receive. Wav = raw PCM16 (lossless, high bandwidth); Mp3 = compressed
     // (lower bandwidth, better compatibility with picky renderers like Sonos).
@@ -56,7 +74,9 @@ public sealed class LocalMediaServer : IAsyncDisposable
         _codec      = codec;
 
         _mp3?.Dispose();
-        _mp3 = codec == StreamCodec.Mp3 ? new Mp3StreamEncoder(pcm16, mp3BitrateKbps) : null;
+        _mp3Silence?.Dispose();
+        _mp3        = codec == StreamCodec.Mp3 ? new Mp3StreamEncoder(pcm16, mp3BitrateKbps) : null;
+        _mp3Silence = codec == StreamCodec.Mp3 ? new Mp3StreamEncoder(pcm16, mp3BitrateKbps) : null;
 
         // Size one silence chunk to SilenceIntervalMs of audio, block-aligned.
         var bytes = pcm16.AverageBytesPerSecond * SilenceIntervalMs / 1000;
@@ -69,16 +89,38 @@ public sealed class LocalMediaServer : IAsyncDisposable
             _ => PumpSilence(), null, SilenceIntervalMs, SilenceIntervalMs);
     }
 
-    // PCM in → bytes to actually stream (raw PCM for WAV, encoded frames for MP3).
-    private byte[] Encode(byte[] pcm) =>
-        _codec == StreamCodec.Mp3 && _mp3 != null ? _mp3.Encode(pcm) : pcm;
-
-    private void Fan(byte[] data)
+    // Turn one PCM buffer into the bytes to stream, and fan it out — sending muted devices
+    // an equivalent silence stream instead of the real audio.
+    private void Distribute(byte[] pcm)
     {
-        if (data.Length == 0) return;
-        foreach (var (_, ch) in _clients)
-            if (!ch.Writer.TryWrite(data)) // DropOldest policy handles slow clients
+        var anyMuted = !_muted.IsEmpty;
+
+        byte[] real, silence;
+        if (_codec == StreamCodec.Mp3 && _mp3 != null)
+        {
+            real    = _mp3.Encode(pcm);
+            silence = anyMuted ? _mp3Silence!.Encode(Zero(pcm.Length)) : [];
+        }
+        else
+        {
+            real    = pcm;
+            silence = anyMuted ? Zero(pcm.Length) : [];
+        }
+
+        foreach (var (_, c) in _clients)
+        {
+            var data = anyMuted && _muted.ContainsKey(c.DeviceId) ? silence : real;
+            if (data.Length == 0) continue;
+            if (!c.Channel.Writer.TryWrite(data)) // DropOldest policy handles slow clients
                 Interlocked.Increment(ref _droppedChunks);
+        }
+    }
+
+    // Reusable zero buffer of the given length (for WAV silence / MP3 silence input).
+    private byte[] Zero(int length)
+    {
+        if (_zero.Length != length) _zero = new byte[length];
+        return _zero;
     }
 
     // Diagnostics — how much real vs. silence we feed, and how often we drop.
@@ -93,7 +135,7 @@ public sealed class LocalMediaServer : IAsyncDisposable
     {
         Interlocked.Exchange(ref _lastDataTicks, DateTime.UtcNow.Ticks);
         Interlocked.Add(ref _realBytes, pcm.Length);
-        Fan(Encode(pcm));
+        Distribute(pcm);
     }
 
     // Fires every SilenceIntervalMs. If real audio hasn't arrived within that window,
@@ -110,7 +152,7 @@ public sealed class LocalMediaServer : IAsyncDisposable
         if (idleMs < SilenceIntervalMs) return; // real audio is flowing — leave it alone
 
         Interlocked.Add(ref _silenceBytes, _silenceChunk.Length);
-        Fan(Encode(_silenceChunk));
+        Distribute(_silenceChunk);
     }
 
     // Every ~2 s, report the real/silence byte rates and drops so we can see whether
@@ -131,9 +173,20 @@ public sealed class LocalMediaServer : IAsyncDisposable
                   $"dropped={dropped} clients={_clients.Count}");
     }
 
-    // Returns the URL the Chromecast should request.
-    public string GetStreamUrl(string localIp) => $"http://{localIp}:{Port}/{FileName}";
-    public string GetArtUrl(string localIp)     => $"http://{localIp}:{Port}/art.png";
+    // Returns the URL the Chromecast should request. The device id rides along in the
+    // query so the server can identify (and mute) that specific client.
+    public string GetStreamUrl(string localIp, string deviceId) =>
+        $"http://{localIp}:{Port}/{FileName}?dev={Uri.EscapeDataString(deviceId)}";
+    public string GetArtUrl(string localIp) => $"http://{localIp}:{Port}/art.png";
+
+    private static string ParseDev(string requestLine)
+    {
+        var i = requestLine.IndexOf("dev=", StringComparison.Ordinal);
+        if (i < 0) return "";
+        var rest = requestLine[(i + 4)..];
+        var end  = rest.IndexOfAny([' ', '&']);
+        return Uri.UnescapeDataString(end >= 0 ? rest[..end] : rest);
+    }
 
     public Task RunAsync() => RunAsync(_cts.Token);
 
@@ -173,7 +226,7 @@ public sealed class LocalMediaServer : IAsyncDisposable
         {
             FullMode = BoundedChannelFullMode.DropOldest,
         });
-        _clients[clientId] = channel;
+        _clients[clientId] = new Client { Channel = channel, DeviceId = ParseDev(requestLine) };
 
         long sent = 0;
         try
@@ -357,10 +410,11 @@ public sealed class LocalMediaServer : IAsyncDisposable
         _cts.Cancel();
         _silenceTimer?.Dispose();
         _mp3?.Dispose();
+        _mp3Silence?.Dispose();
         _listener.Stop();
 
-        foreach (var (_, ch) in _clients)
-            ch.Writer.TryComplete();
+        foreach (var (_, c) in _clients)
+            c.Channel.Writer.TryComplete();
 
         _cts.Dispose();
     }
