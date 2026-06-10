@@ -25,6 +25,7 @@ public sealed class CastSession : ICastSession
     private bool         _sessionConnected;
     private int          _requestId;
     private int          _mediaSessionId;
+    private string?      _appSessionId;   // receiver app session (for quitting the app)
 
     private readonly CancellationTokenSource _cts = new();
 
@@ -80,6 +81,18 @@ public sealed class CastSession : ICastSession
                 Log.Write($"[cast] STOP mediaSessionId={_mediaSessionId}");
                 await SendJsonAsync(NsMedia, _sessionTransportId,
                     $$"""{"type":"STOP","mediaSessionId":{{_mediaSessionId}},"requestId":{{NextId()}}}""",
+                    timeout.Token);
+            }
+
+            // Also quit the receiver app entirely, returning the device to its home screen.
+            // This leaves the Chromecast in a clean state, avoiding a wedged receiver that
+            // would otherwise need an external app (e.g. Spotify) to reset it.
+            if (_channel != null && _appSessionId != null)
+            {
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                Log.Write($"[cast] quit app session {_appSessionId}");
+                await SendJsonAsync(NsReceiver, ReceiverId,
+                    $$"""{"type":"STOP","sessionId":"{{_appSessionId}}","requestId":{{NextId()}}}""",
                     timeout.Token);
             }
         }
@@ -198,6 +211,7 @@ public sealed class CastSession : ICastSession
             var tid = tidEl.GetString()!;
             if (_sessionConnected && tid == _sessionTransportId) break; // already handled
 
+            if (app.TryGetProperty("sessionId", out var sid)) _appSessionId = sid.GetString();
             _sessionTransportId = tid;
             _sessionConnected   = true;
 
