@@ -78,6 +78,9 @@ public partial class AboutWindow : Window
         else                    OpenUrl("https://www.gnu.org/licenses/gpl-3.0.txt");
     }
 
+    private void OnOpenDebug(object sender, RoutedEventArgs e) =>
+        new DebugWindow { Owner = this }.ShowDialog();
+
     private void OnClose(object sender, RoutedEventArgs e) => Close();
 
     private static void OpenUrl(string url)

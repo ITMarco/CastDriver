@@ -47,18 +47,6 @@ public partial class MainWindow : Window
     private void OnExit(object sender, RoutedEventArgs e) =>
         (System.Windows.Application.Current as App)?.ExitApp();
 
-    private DebugWindow? _debugWindow;
-    private void OnOpenDebug(object sender, RoutedEventArgs e)
-    {
-        if (_debugWindow is { IsVisible: true })
-        {
-            _debugWindow.Activate();
-            return;
-        }
-        _debugWindow = new DebugWindow { Owner = this };
-        _debugWindow.Show();
-    }
-
     private void OnOpenAbout(object sender, RoutedEventArgs e) =>
         new AboutWindow { Owner = this }.ShowDialog();
 

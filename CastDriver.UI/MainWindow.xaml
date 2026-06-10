@@ -548,10 +548,6 @@
                                 Command="{Binding StopAllCommand}"
                                 Style="{StaticResource GhostButtonStyle}"
                                 Padding="12,6" FontSize="12"/>
-                        <Button Content="Debug"
-                                Click="OnOpenDebug"
-                                Style="{StaticResource GhostButtonStyle}"
-                                Padding="12,6" FontSize="12" Margin="8,0,0,0"/>
                         <Button Content="About"
                                 Click="OnOpenAbout"
                                 Style="{StaticResource GhostButtonStyle}"

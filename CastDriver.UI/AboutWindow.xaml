@@ -93,6 +93,14 @@
                                VerticalAlignment="Center" Margin="10,0,0,0"
                                TextWrapping="Wrap"/>
                 </StackPanel>
+
+                <Separator Margin="0,12"/>
+
+                <Button Content="Debug screen…"
+                        Click="OnOpenDebug"
+                        Style="{StaticResource GhostButtonStyle}"
+                        Padding="12,6" FontSize="12"
+                        HorizontalAlignment="Left"/>
             </StackPanel>
         </Border>
 
