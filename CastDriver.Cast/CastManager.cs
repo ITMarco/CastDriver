@@ -18,6 +18,10 @@ public sealed class CastManager : IAsyncDisposable
     private bool          _capturing;
     private bool          _mediaServerStarted;
     private MMDevice?     _captureDevice;
+    private bool          _isLoopback = true;
+
+    // The chosen audio source endpoint id (null = default render device).
+    public string? SourceDeviceId { get; set; }
 
     // User-controlled cast stream level, independent of the local PC volume.
     // 0 = silent, 1 = source level. Applied as software gain to the PCM we stream.
@@ -62,11 +66,11 @@ public sealed class CastManager : IAsyncDisposable
 
         EnsureCaptureDevice();
 
-        var rawFormat = _captureDevice!.AudioClient.MixFormat;
+        _capture = new AudioCapture(_captureDevice!, _isLoopback);
+        var rawFormat = _capture.WaveFormat;
         var pcm16     = PcmConverter.ToPcm16Format(rawFormat);
         _mediaServer.SetWaveFormat(pcm16);
 
-        _capture = new AudioCapture(_captureDevice);
         _capture.DataAvailable += (_, e) =>
         {
             var pcm = PcmConverter.Convert(e.Buffer[..e.BytesRecorded], rawFormat, _castGain);
@@ -96,11 +100,22 @@ public sealed class CastManager : IAsyncDisposable
     private void EnsureCaptureDevice()
     {
         if (_captureDevice != null) return;
-        _captureDevice    = AudioCapture.GetCaptureDevice();
+        (_captureDevice, _isLoopback) = AudioCapture.Resolve(SourceDeviceId);
         CaptureDeviceName = _captureDevice.FriendlyName;
     }
 
     public bool IsCaptureDeviceAvailable => _captureDevice != null;
+
+    // Switch the capture source. If we're already casting, restart capture on the new
+    // device so the change takes effect live.
+    public async Task SetSourceDeviceAsync(string? id)
+    {
+        SourceDeviceId = id;
+        var wasCapturing = _capturing;
+        StopAudio();
+        _captureDevice = null; // force re-resolve on next EnsureCaptureDevice
+        if (wasCapturing) await StartAudioAsync();
+    }
 
     // "Cast only" = silence the local speakers (mute the endpoint) while the cast keeps
     // playing. This works because the loopback capture is pre-volume on this setup, so

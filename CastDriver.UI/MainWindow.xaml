@@ -141,6 +141,15 @@
                 </Grid>
             </Border>
 
+            <!-- ── Source section ────────────────────────────────── -->
+            <StackPanel Margin="16,12,16,0">
+                <TextBlock Text="SOURCE" Style="{StaticResource LabelStyle}" Margin="0,0,0,6"/>
+                <ComboBox Style="{StaticResource DarkComboBox}"
+                          ItemsSource="{Binding Sources}"
+                          SelectedItem="{Binding SelectedSource, Mode=TwoWay}"
+                          DisplayMemberPath="DisplayName"/>
+            </StackPanel>
+
             <!-- ── Volume section ────────────────────────────────── -->
             <StackPanel Margin="16,14,16,4">
 
@@ -495,6 +504,10 @@
                                 Padding="12,6" FontSize="12"/>
                         <Button Content="Debug"
                                 Click="OnOpenDebug"
+                                Style="{StaticResource GhostButtonStyle}"
+                                Padding="12,6" FontSize="12" Margin="8,0,0,0"/>
+                        <Button Content="About"
+                                Click="OnOpenAbout"
                                 Style="{StaticResource GhostButtonStyle}"
                                 Padding="12,6" FontSize="12" Margin="8,0,0,0"/>
                     </StackPanel>

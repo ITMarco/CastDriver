@@ -13,10 +13,14 @@ namespace CastDriver.UI.ViewModels;
 public partial class MainViewModel : ObservableObject, IAsyncDisposable
 {
     private readonly CastManager   _manager = new();
+    private readonly AppSettings   _settings = AppSettings.Load();
     private MMDevice?              _captureDevice;
     private readonly DispatcherTimer _levelTimer;
+    private bool                  _initializing = true;
 
     [ObservableProperty] private ObservableCollection<DeviceViewModel> _devices = [];
+    [ObservableProperty] private ObservableCollection<AudioEndpointInfo> _sources = [];
+    [ObservableProperty] private AudioEndpointInfo? _selectedSource;
     [ObservableProperty] private double  _volume          = 75;
     [ObservableProperty] private bool    _isMuted;
     [ObservableProperty] private float   _audioLevel;
@@ -34,6 +38,7 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         _levelTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) }; // ~30 fps
         _levelTimer.Tick += OnLevelTick;
 
+        _manager.SourceDeviceId       = _settings.SourceDeviceId;
         _manager.DeviceDiscovered    += OnDeviceDiscovered;
         _manager.DeviceLost          += OnDeviceLost;
         _manager.SessionError        += (_, msg) => UpdateDiscoveryStatus(msg);
@@ -46,10 +51,12 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
     {
         IsDriverInstalled = DriverInstaller.IsInstalled();
 
-        RefreshCaptureDevice();
+        LoadSources();
+        RefreshCaptureDevice(_settings.SourceDeviceId);
 
         _manager.StartDiscovery();
         _levelTimer.Start();
+        _initializing = false;
 
         await Task.Delay(10_000);
 
@@ -59,14 +66,33 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
             : $"{Devices.Count} device(s) found.");
     }
 
-    private void RefreshCaptureDevice()
+    // ── Source device selection ────────────────────────────────────────────────
+
+    private void LoadSources()
+    {
+        Sources = new ObservableCollection<AudioEndpointInfo>(AudioCapture.ListEndpoints());
+        SelectedSource = Sources.FirstOrDefault(s => s.Id == _settings.SourceDeviceId)
+                      ?? Sources.FirstOrDefault();
+    }
+
+    partial void OnSelectedSourceChanged(AudioEndpointInfo? value)
+    {
+        if (value == null || _initializing) return;
+
+        _settings.SourceDeviceId = value.Id;
+        _settings.Save();
+        _ = _manager.SetSourceDeviceAsync(value.Id);
+        RefreshCaptureDevice(value.Id);
+    }
+
+    private void RefreshCaptureDevice(string? id)
     {
         try
         {
-            _captureDevice     = AudioCapture.GetCaptureDevice();
-            CaptureDeviceName  = _captureDevice.FriendlyName;
-            Volume             = Math.Round(_captureDevice.AudioEndpointVolume.MasterVolumeLevelScalar * 100.0);
-            IsMuted            = _captureDevice.AudioEndpointVolume.Mute;
+            (_captureDevice, _) = AudioCapture.Resolve(id);
+            CaptureDeviceName   = _captureDevice.FriendlyName;
+            Volume              = Math.Round(_captureDevice.AudioEndpointVolume.MasterVolumeLevelScalar * 100.0);
+            IsMuted             = _captureDevice.AudioEndpointVolume.Mute;
 
             using var enumerator = new MMDeviceEnumerator();
             var def = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
@@ -196,7 +222,7 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         {
             var ok = await DriverInstaller.InstallAsync();
             IsDriverInstalled = ok;
-            if (ok) RefreshCaptureDevice();
+            if (ok) { LoadSources(); RefreshCaptureDevice(_settings.SourceDeviceId); }
         }
         catch (Exception ex)
         {

@@ -48,6 +48,9 @@ public partial class MainWindow : Window
         _debugWindow.Show();
     }
 
+    private void OnOpenAbout(object sender, RoutedEventArgs e) =>
+        new AboutWindow { Owner = this }.ShowDialog();
+
     // Clicking outside the window hides it — unless the user pinned it open.
     protected override void OnDeactivated(EventArgs e)
     {

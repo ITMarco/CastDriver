@@ -1,0 +1,74 @@
+<Window x:Class="CastDriver.UI.AboutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="About CastDriver"
+        Width="420" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#1C1C1E">
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/Dark.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <StackPanel Margin="24">
+        <TextBlock Text="CastDriver"
+                   Foreground="{StaticResource TextPrimaryBrush}"
+                   FontSize="22" FontWeight="SemiBold"/>
+        <TextBlock Text="Version 1.0"
+                   Style="{StaticResource SmallStyle}" Margin="0,2,0,0"/>
+
+        <TextBlock Text="Cast all your Windows PC audio to Chromecast devices."
+                   Style="{StaticResource BodyStyle}"
+                   TextWrapping="Wrap" Margin="0,14,0,0"/>
+
+        <Grid Margin="0,16,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Author"
+                       Style="{StaticResource SmallStyle}" Margin="0,0,12,6"/>
+            <TextBlock Grid.Row="0" Grid.Column="1" Text="ITMarco"
+                       Style="{StaticResource BodyStyle}" FontSize="13" Margin="0,0,0,6"/>
+
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Repository"
+                       Style="{StaticResource SmallStyle}" Margin="0,0,12,6"/>
+            <TextBlock Grid.Row="1" Grid.Column="1" FontSize="13" Margin="0,0,0,6">
+                <Hyperlink NavigateUri="https://github.com/ITMarco/CastDriver"
+                           RequestNavigate="OnNavigate"
+                           Foreground="{StaticResource AccentBrush}">
+                    github.com/ITMarco/CastDriver
+                </Hyperlink>
+            </TextBlock>
+
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="License"
+                       Style="{StaticResource SmallStyle}" Margin="0,0,12,0"/>
+            <TextBlock Grid.Row="2" Grid.Column="1" Text="GNU GPL v3.0"
+                       Style="{StaticResource BodyStyle}" FontSize="13"/>
+        </Grid>
+
+        <TextBlock TextWrapping="Wrap" Margin="0,16,0,0"
+                   Style="{StaticResource SmallStyle}"
+                   Text="This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. It is distributed WITHOUT ANY WARRANTY."/>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button Content="View license" Click="OnViewLicense"
+                    Style="{StaticResource GhostButtonStyle}"
+                    Padding="14,6" FontSize="12" Margin="0,0,8,0"/>
+            <Button Content="Close" Click="OnClose"
+                    Style="{StaticResource PrimaryButtonStyle}"
+                    Padding="18,6" FontSize="12"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

@@ -3,18 +3,41 @@ using NAudio.Wave;
 
 namespace CastDriver.Audio;
 
+// Describes a selectable audio source: either a render device (captured via loopback)
+// or an input device (captured directly).
+public sealed record AudioEndpointInfo(string Id, string Name, bool IsInput)
+{
+    public string DisplayName => (IsInput ? "🎤 " : "🔊 ") + Name;
+}
+
 public sealed class AudioCapture : IDisposable
 {
-    private WasapiCapture? _capture;
-    private readonly MMDevice _device;
+    private readonly WasapiCapture _capture;
 
-    public WaveFormat WaveFormat => _device.AudioClient.MixFormat;
+    public WaveFormat WaveFormat => _capture.WaveFormat;
     public event EventHandler<WaveInEventArgs>? DataAvailable;
 
-    public AudioCapture(MMDevice device)
+    // loopback = true → capture what plays on a render device; false → capture an input device.
+    public AudioCapture(MMDevice device, bool loopback)
     {
-        _device = device;
+        _capture = loopback ? new WasapiLoopbackCapture(device) : new WasapiCapture(device);
+        _capture.DataAvailable += (s, e) => DataAvailable?.Invoke(this, e);
     }
+
+    public void Start() => _capture.StartRecording();
+
+    public void Stop()
+    {
+        try { _capture.StopRecording(); } catch { /* already stopped */ }
+    }
+
+    public void Dispose()
+    {
+        Stop();
+        _capture.Dispose();
+    }
+
+    // ── Device enumeration / selection ─────────────────────────────────────────
 
     public static MMDevice? FindScreamDevice()
     {
@@ -24,8 +47,7 @@ public sealed class AudioCapture : IDisposable
             d.FriendlyName.Contains("Scream", StringComparison.OrdinalIgnoreCase));
     }
 
-    // Returns the Scream device if installed, otherwise the Windows default render device.
-    // This lets the app work without the virtual driver installed.
+    // Default render device (used when no explicit source is chosen).
     public static MMDevice GetCaptureDevice()
     {
         var scream = FindScreamDevice();
@@ -41,22 +63,36 @@ public sealed class AudioCapture : IDisposable
         return enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active).ToList();
     }
 
-    public void Start()
+    // All selectable sources: render endpoints (loopback) followed by input endpoints.
+    public static IReadOnlyList<AudioEndpointInfo> ListEndpoints()
     {
-        _capture = new WasapiLoopbackCapture(_device);
-        _capture.DataAvailable += (s, e) => DataAvailable?.Invoke(this, e);
-        _capture.StartRecording();
+        using var enumerator = new MMDeviceEnumerator();
+        var list = new List<AudioEndpointInfo>();
+
+        foreach (var d in enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
+            list.Add(new AudioEndpointInfo(d.ID, d.FriendlyName, IsInput: false));
+
+        foreach (var d in enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active))
+            list.Add(new AudioEndpointInfo(d.ID, d.FriendlyName, IsInput: true));
+
+        return list;
     }
 
-    public void Stop()
+    // Resolve a saved endpoint id to a device + capture mode.
+    // Falls back to the default render device when the id is null/missing.
+    public static (MMDevice Device, bool Loopback) Resolve(string? id)
     {
-        _capture?.StopRecording();
-        _capture?.Dispose();
-        _capture = null;
-    }
+        using var enumerator = new MMDeviceEnumerator();
 
-    public void Dispose()
-    {
-        Stop();
+        if (!string.IsNullOrEmpty(id))
+        {
+            foreach (var d in enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
+                if (d.ID == id) return (d, true);
+
+            foreach (var d in enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active))
+                if (d.ID == id) return (d, false);
+        }
+
+        return (GetCaptureDevice(), true);
     }
 }
