@@ -20,7 +20,7 @@
         <TextBlock Text="CastDriver"
                    Foreground="{StaticResource TextPrimaryBrush}"
                    FontSize="22" FontWeight="SemiBold"/>
-        <TextBlock Text="Version 1.0"
+        <TextBlock x:Name="VersionText" Text="Version 1.0"
                    Style="{StaticResource SmallStyle}" Margin="0,2,0,0"/>
 
         <TextBlock Text="Cast all your Windows PC audio to Chromecast devices."

@@ -7,7 +7,11 @@ namespace CastDriver.UI;
 
 public partial class AboutWindow : Window
 {
-    public AboutWindow() => InitializeComponent();
+    public AboutWindow()
+    {
+        InitializeComponent();
+        VersionText.Text = $"Version {AppInfo.Short}";
+    }
 
     private void OnNavigate(object sender, RequestNavigateEventArgs e)
     {

@@ -142,6 +142,27 @@
                 </Grid>
             </Border>
 
+            <!-- Update-available banner -->
+            <Border Background="#3330D158"
+                    BorderBrush="#2230D158" BorderThickness="0 1 0 1"
+                    Padding="16,10"
+                    Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolVis}}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding UpdateText}"
+                               Foreground="White" FontSize="12"
+                               VerticalAlignment="Center" TextWrapping="Wrap"/>
+                    <Button Grid.Column="1"
+                            Content="Download"
+                            Command="{Binding OpenUpdateCommand}"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            FontSize="12" Padding="10,4"/>
+                </Grid>
+            </Border>
+
             <!-- ── Source section ────────────────────────────────── -->
             <StackPanel Margin="16,12,16,0">
                 <TextBlock Text="SOURCE" Style="{StaticResource LabelStyle}" Margin="0,0,0,6"/>
@@ -528,7 +549,7 @@
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="v1.0"
+                        <TextBlock Text="{Binding AppVersion}"
                                    Style="{StaticResource SmallStyle}"
                                    VerticalAlignment="Center"
                                    Margin="0,0,10,0"

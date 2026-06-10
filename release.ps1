@@ -1,0 +1,105 @@
+<#
+.SYNOPSIS
+  One-command release: bump version, build both single-file exes, commit/push,
+  and publish a GitHub release with both builds attached.
+
+.EXAMPLE
+  ./release.ps1            # bump minor (1.2.0 -> 1.3.0)
+  ./release.ps1 -Major     # bump major (1.3.0 -> 2.0.0)
+  ./release.ps1 1.5        # set an explicit version
+#>
+param(
+    [string]$Version = "",   # explicit "major.minor[.patch]"; empty = bump minor
+    [switch]$Major           # bump major instead of minor
+)
+
+$ErrorActionPreference = 'Stop'
+$repo   = "ITMarco/CastDriver"
+$csproj = "CastDriver.UI/CastDriver.UI.csproj"
+
+# ── 1. Work out the new version ──────────────────────────────────────────────
+[xml]$xml = Get-Content $csproj
+$verNode  = $xml.SelectSingleNode('//Version')
+if (-not $verNode) { throw "No <Version> element in $csproj" }
+$cur = [version]$verNode.InnerText
+
+if ($Version)   { $nv = [version]($(if ($Version -match '\.') { $Version } else { "$Version.0" })) }
+elseif ($Major) { $nv = [version]"$($cur.Major + 1).0.0" }
+else            { $nv = [version]"$($cur.Major).$($cur.Minor + 1).0" }
+
+$newVer = "$($nv.Major).$($nv.Minor).$([math]::Max($nv.Build,0))"
+$tag    = "v$($nv.Major).$($nv.Minor)"
+Write-Host "Releasing $tag (version $newVer, was $cur)" -ForegroundColor Cyan
+
+# ── 2. Update csproj + commit + push ─────────────────────────────────────────
+$verNode.InnerText = $newVer
+$xml.Save((Resolve-Path $csproj))
+
+git add -A
+if (git status --porcelain) {
+    git commit -m "Release $tag"
+}
+git push origin main
+
+# ── 3. Build both single-file builds ─────────────────────────────────────────
+$dist = "dist"
+Remove-Item $dist -Recurse -Force -ErrorAction SilentlyContinue
+
+$common = @(
+    "CastDriver.UI", "-c", "Release", "-r", "win-x64",
+    "-p:PublishSingleFile=true", "-p:IncludeNativeLibrariesForSelfExtract=true",
+    "-p:DebugType=none"
+)
+
+Write-Host "Building self-contained build..." -ForegroundColor Cyan
+dotnet publish @common --self-contained true -p:EnableCompressionInSingleFile=true -o "$dist/standalone"
+
+Write-Host "Building framework-dependent build..." -ForegroundColor Cyan
+dotnet publish @common --self-contained false -o "$dist/framework"
+
+Copy-Item "$dist/framework/CastDriver.UI.exe"  "$dist/CastDriver.exe" -Force
+Copy-Item "$dist/standalone/CastDriver.UI.exe" "$dist/CastDriver-standalone.exe" -Force
+
+# ── 4. Get a GitHub token from the git credential store ──────────────────────
+$cred  = "protocol=https`nhost=github.com`n`n" | git credential fill 2>$null
+$token = ($cred | Where-Object { $_ -like 'password=*' }) -replace '^password=', ''
+if (-not $token) { throw "Could not get a GitHub token from the credential store." }
+
+$headers = @{
+    Authorization = "token $token"
+    "User-Agent"  = "CastDriver-release"
+    Accept        = "application/vnd.github+json"
+}
+
+# ── 5. Create the release ────────────────────────────────────────────────────
+$notes = @"
+CastDriver $tag — cast Windows PC audio to Chromecast and DLNA devices.
+
+Downloads:
+- **CastDriver.exe** (~4 MB) — needs the free .NET 10 Desktop Runtime (Windows x64): https://dotnet.microsoft.com/download/dotnet/10.0
+- **CastDriver-standalone.exe** (~73 MB) — runs anywhere, no .NET install required.
+
+On first run, allow CastDriver through Windows Firewall so devices can reach the stream.
+"@
+
+$body = @{
+    tag_name         = $tag
+    target_commitish = "main"
+    name             = "CastDriver $tag"
+    body             = $notes
+    draft            = $false
+    prerelease       = $false
+} | ConvertTo-Json
+
+$rel        = Invoke-RestMethod -Method Post -Headers $headers -ContentType "application/json" `
+                -Uri "https://api.github.com/repos/$repo/releases" -Body $body
+$uploadBase = $rel.upload_url -replace '\{.*\}', ''
+
+# ── 6. Upload both assets ────────────────────────────────────────────────────
+foreach ($asset in @("CastDriver.exe", "CastDriver-standalone.exe")) {
+    Write-Host "Uploading $asset..." -ForegroundColor Cyan
+    Invoke-RestMethod -Method Post -Headers $headers -ContentType "application/octet-stream" `
+        -Uri "$uploadBase?name=$asset" -InFile "$dist/$asset" | Out-Null
+}
+
+Write-Host "`nReleased: $($rel.html_url)" -ForegroundColor Green

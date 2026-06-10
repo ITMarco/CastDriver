@@ -31,8 +31,12 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private bool    _isDefaultDevice;
     [ObservableProperty] private string  _captureDeviceName = "Loading…";
     [ObservableProperty] private bool    _isCastOnlyMode;
+    [ObservableProperty] private bool    _updateAvailable;
+    [ObservableProperty] private string  _updateText = "";
+    private string _updateUrl = "";
 
     public string VolumeLabel => $"{(int)Volume}%";
+    public string AppVersion  => AppInfo.Display;
 
     public MainViewModel()
     {
@@ -62,6 +66,8 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         _manager.StartDiscovery();
         _levelTimer.Start();
         _initializing = false;
+
+        _ = CheckForUpdateAsync();
 
         await Task.Delay(10_000);
 
@@ -104,6 +110,31 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         UpdateDiscoveryStatus(useMp3
             ? "Switched to MP3 — re-cast to apply."
             : "Switched to WAV — re-cast to apply.");
+    }
+
+    // ── Update check ───────────────────────────────────────────────────────────
+
+    private async Task CheckForUpdateAsync()
+    {
+        var res = await UpdateChecker.CheckAsync(AppInfo.Version);
+        if (res is not { Available: true }) return;
+
+        WpfApp.Current.Dispatcher.Invoke(() =>
+        {
+            _updateUrl      = res.Url;
+            UpdateText      = $"Update available: {res.LatestTag}";
+            UpdateAvailable = true;
+        });
+    }
+
+    [RelayCommand]
+    private void OpenUpdate()
+    {
+        if (!string.IsNullOrEmpty(_updateUrl))
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(_updateUrl)
+            {
+                UseShellExecute = true,
+            });
     }
 
     partial void OnSelectedSourceChanged(AudioEndpointInfo? value)
