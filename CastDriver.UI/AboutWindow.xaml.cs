@@ -7,10 +7,50 @@ namespace CastDriver.UI;
 
 public partial class AboutWindow : Window
 {
+    private string _updateUrl = "";
+
     public AboutWindow()
     {
         InitializeComponent();
-        VersionText.Text = $"Version {AppInfo.Short}";
+        VersionText.Text     = $"Version {AppInfo.Short}";
+        DisableCheck.IsChecked = AppSettings.Current.DisableUpdateCheck;
+    }
+
+    private async void OnCheckUpdates(object sender, RoutedEventArgs e)
+    {
+        CheckButton.IsEnabled    = false;
+        DownloadButton.Visibility = Visibility.Collapsed;
+        UpdateStatus.Text        = "Checking…";
+        try
+        {
+            var res = await UpdateChecker.CheckAsync(AppInfo.Version);
+            if (res == null)
+            {
+                UpdateStatus.Text = "Couldn't check (no connection?).";
+            }
+            else if (res.Available)
+            {
+                _updateUrl               = res.Url;
+                UpdateStatus.Text        = $"Update available: {res.LatestTag}";
+                DownloadButton.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                UpdateStatus.Text = $"You're up to date ({AppInfo.Display}).";
+            }
+        }
+        finally { CheckButton.IsEnabled = true; }
+    }
+
+    private void OnDownloadUpdate(object sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(_updateUrl)) OpenUrl(_updateUrl);
+    }
+
+    private void OnToggleDisableCheck(object sender, RoutedEventArgs e)
+    {
+        AppSettings.Current.DisableUpdateCheck = DisableCheck.IsChecked == true;
+        AppSettings.Current.Save();
     }
 
     private void OnNavigate(object sender, RequestNavigateEventArgs e)

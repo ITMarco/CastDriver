@@ -116,6 +116,8 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     private async Task CheckForUpdateAsync()
     {
+        if (_settings.DisableUpdateCheck) return;
+
         var res = await UpdateChecker.CheckAsync(AppInfo.Version);
         if (res is not { Available: true }) return;
 

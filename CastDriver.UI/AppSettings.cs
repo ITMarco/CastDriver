@@ -23,6 +23,9 @@ public sealed class AppSettings
     public bool UseMp3 { get; set; }
     public int  Mp3Bitrate { get; set; } = 256;
 
+    // When true, the app does not check GitHub for a newer version at startup.
+    public bool DisableUpdateCheck { get; set; }
+
     private static string Dir =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "CastDriver");
 
