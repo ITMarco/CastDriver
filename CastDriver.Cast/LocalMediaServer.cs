@@ -173,19 +173,20 @@ public sealed class LocalMediaServer : IAsyncDisposable
                   $"dropped={dropped} clients={_clients.Count}");
     }
 
-    // Returns the URL the Chromecast should request. The device id rides along in the
-    // query so the server can identify (and mute) that specific client.
+    // Returns the URL the Chromecast should request. The device id is a PATH segment (not
+    // a query) so the filename keeps its .wav/.mp3 extension — receivers sniff the extension
+    // and refuse to fetch "audio.wav?dev=…".
     public string GetStreamUrl(string localIp, string deviceId) =>
-        $"http://{localIp}:{Port}/{FileName}?dev={Uri.EscapeDataString(deviceId)}";
+        $"http://{localIp}:{Port}/{Uri.EscapeDataString(deviceId)}/{FileName}";
     public string GetArtUrl(string localIp) => $"http://{localIp}:{Port}/art.png";
 
+    // Request line: "GET /<deviceId>/audio.wav HTTP/1.1" → the device id (first path segment).
     private static string ParseDev(string requestLine)
     {
-        var i = requestLine.IndexOf("dev=", StringComparison.Ordinal);
-        if (i < 0) return "";
-        var rest = requestLine[(i + 4)..];
-        var end  = rest.IndexOfAny([' ', '&']);
-        return Uri.UnescapeDataString(end >= 0 ? rest[..end] : rest);
+        var parts = requestLine.Split(' ');
+        if (parts.Length < 2) return "";
+        var segs = parts[1].Trim('/').Split('/');
+        return segs.Length >= 2 ? Uri.UnescapeDataString(segs[0]) : "";
     }
 
     public Task RunAsync() => RunAsync(_cts.Token);
