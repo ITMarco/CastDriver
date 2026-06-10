@@ -71,7 +71,7 @@ public partial class App : Application
         }
     }
 
-    private void ExitApp()
+    public void ExitApp()
     {
         _trayIcon?.Dispose();
         _vm?.DisposeAsync();

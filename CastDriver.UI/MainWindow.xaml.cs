@@ -10,6 +10,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = vm;
+        ApplyPinned(AppSettings.Current.Pinned);
     }
 
     private void OnTitleBarDrag(object sender, MouseButtonEventArgs e)
@@ -25,16 +26,26 @@ public partial class MainWindow : Window
 
     private void OnTogglePin(object sender, RoutedEventArgs e)
     {
-        IsPinned = !IsPinned;
-        ShowInTaskbar        = IsPinned;        // so it can be minimised to the taskbar
-        Topmost              = !IsPinned;       // pinned = behaves like a normal window
-        PinButton.Opacity    = IsPinned ? 1.0 : 0.5;
-        PinButton.ToolTip    = IsPinned ? "Unpin (auto-hide)" : "Pin (keep open)";
-        MinButton.Visibility = IsPinned ? Visibility.Visible : Visibility.Collapsed;
+        ApplyPinned(!IsPinned);
+        AppSettings.Current.Pinned = IsPinned;
+        AppSettings.Current.Save();
+    }
+
+    private void ApplyPinned(bool pinned)
+    {
+        IsPinned             = pinned;
+        ShowInTaskbar        = pinned;          // so it can be minimised to the taskbar
+        Topmost              = !pinned;         // pinned = behaves like a normal window
+        PinButton.Opacity    = pinned ? 1.0 : 0.5;
+        PinButton.ToolTip    = pinned ? "Unpin (auto-hide)" : "Pin (keep open)";
+        MinButton.Visibility = pinned ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void OnMinimize(object sender, RoutedEventArgs e) =>
         WindowState = WindowState.Minimized;
+
+    private void OnExit(object sender, RoutedEventArgs e) =>
+        (System.Windows.Application.Current as App)?.ExitApp();
 
     private DebugWindow? _debugWindow;
     private void OnOpenDebug(object sender, RoutedEventArgs e)

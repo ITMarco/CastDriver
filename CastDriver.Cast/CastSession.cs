@@ -5,7 +5,7 @@ namespace CastDriver.Cast;
 
 // Implements the Cast V2 application-level protocol over a CastChannel.
 // Flow: CONNECT → LAUNCH default receiver → wait RECEIVER_STATUS → CONNECT session → LOAD audio URL.
-public sealed class CastSession : IAsyncDisposable
+public sealed class CastSession : ICastSession
 {
     // Cast namespaces
     private const string NsConnection = "urn:x-cast:com.google.cast.tp.connection";

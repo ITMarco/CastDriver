@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:CastDriver.UI.ViewModels"
         Title="Cast Sound"
+        Icon="icon.ico"
         Width="320"
         SizeToContent="Height"
         WindowStyle="None"
@@ -388,9 +389,18 @@
 
                                     <!-- Device name + status -->
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Name}"
-                                                   Foreground="{StaticResource TextPrimaryBrush}"
-                                                   FontSize="13" FontWeight="Medium"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding Name}"
+                                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                                       FontSize="13" FontWeight="Medium"
+                                                       VerticalAlignment="Center"/>
+                                            <Border Background="{StaticResource BorderBrush}"
+                                                    CornerRadius="4" Padding="5,1" Margin="8,0,0,0"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding KindLabel}" FontSize="9"
+                                                           Foreground="{StaticResource TextSecondaryBrush}"/>
+                                            </Border>
+                                        </StackPanel>
                                         <TextBlock Margin="0,1,0,0"
                                                    FontSize="11"
                                                    Visibility="{Binding HasError,
@@ -512,11 +522,17 @@
                                 Padding="12,6" FontSize="12" Margin="8,0,0,0"/>
                     </StackPanel>
 
-                    <TextBlock Grid.Column="1"
-                               Text="v1.0"
-                               Style="{StaticResource SmallStyle}"
-                               VerticalAlignment="Center"
-                               Foreground="{StaticResource TextTertiaryBrush}"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="v1.0"
+                                   Style="{StaticResource SmallStyle}"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,10,0"
+                                   Foreground="{StaticResource TextTertiaryBrush}"/>
+                        <Button Content="Exit"
+                                Click="OnExit"
+                                Style="{StaticResource GhostButtonStyle}"
+                                Padding="12,6" FontSize="12"/>
+                    </StackPanel>
                 </Grid>
             </StackPanel>
 

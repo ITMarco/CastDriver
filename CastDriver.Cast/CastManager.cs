@@ -11,9 +11,10 @@ namespace CastDriver.Cast;
 public sealed class CastManager : IAsyncDisposable
 {
     private readonly ChromecastDiscovery       _discovery  = new();
+    private readonly DlnaDiscovery             _dlna        = new();
     private readonly LocalMediaServer          _mediaServer = new();
-    private readonly ConcurrentDictionary<string, CastSession>  _sessions = new();
-    private readonly ConcurrentDictionary<string, ChromecastDevice> _knownDevices = new();
+    private readonly ConcurrentDictionary<string, ICastSession> _sessions = new();
+    private readonly ConcurrentDictionary<string, ICastDevice>  _knownDevices = new();
     private AudioCapture? _capture;
     private bool          _capturing;
     private bool          _mediaServerStarted;
@@ -36,27 +37,32 @@ public sealed class CastManager : IAsyncDisposable
     // The friendly name of the device being captured (shown in the UI).
     public string? CaptureDeviceName { get; private set; }
 
-    public event EventHandler<ChromecastDevice>? DeviceDiscovered;
-    public event EventHandler<ChromecastDevice>? DeviceLost;
-    public event EventHandler<string>?           SessionError;
-    // (device, level 0–1) — raised when a receiver reports its own volume.
-    public event EventHandler<(ChromecastDevice Device, float Level)>? DeviceVolumeReported;
+    public event EventHandler<ICastDevice>? DeviceDiscovered;
+    public event EventHandler<ICastDevice>? DeviceLost;
+    public event EventHandler<string>?      SessionError;
+    // (device, level 0–1) — raised when a device reports its own volume.
+    public event EventHandler<(ICastDevice Device, float Level)>? DeviceVolumeReported;
 
-    public IReadOnlyDictionary<string, ChromecastDevice> KnownDevices => _knownDevices;
+    public IReadOnlyDictionary<string, ICastDevice> KnownDevices => _knownDevices;
 
     public void StartDiscovery()
     {
-        _discovery.DeviceFound += (sender, d) =>
+        _discovery.DeviceFound += (sender, d) => OnFound(d);
+        _discovery.DeviceLost  += (sender, d) =>
         {
-            _knownDevices[d.Host] = d;
-            DeviceDiscovered?.Invoke(this, d);
-        };
-        _discovery.DeviceLost += (sender, d) =>
-        {
-            _knownDevices.TryRemove(d.Host, out ChromecastDevice? removed);
+            _knownDevices.TryRemove(d.Id, out _);
             DeviceLost?.Invoke(this, d);
         };
+        _dlna.DeviceFound += (sender, d) => OnFound(d);
+
         _discovery.Start();
+        _dlna.Start();
+    }
+
+    private void OnFound(ICastDevice d)
+    {
+        _knownDevices[d.Id] = d;
+        DeviceDiscovered?.Invoke(this, d);
     }
 
     // Start the HTTP media server and audio capture from the render endpoint.
@@ -133,47 +139,65 @@ public sealed class CastManager : IAsyncDisposable
     }
 
     // Begin casting to a specific device (called when user checks a device in the UI).
-    public async Task CastToDeviceAsync(ChromecastDevice device, CancellationToken ct = default)
+    public async Task CastToDeviceAsync(ICastDevice device, CancellationToken ct = default)
     {
-        if (_sessions.ContainsKey(device.Host)) return;
+        if (_sessions.ContainsKey(device.Id)) return;
 
         if (!_capturing)
             await StartAudioAsync();
 
         var localIp  = GetLocalIpFor(device.Host);
         var audioUrl = _mediaServer.GetStreamUrl(localIp);
-        Log.Write($"[cast] local IP for {device.Host} = {localIp}; stream URL = {audioUrl}");
+        Log.Write($"[cast] {device.Kind} '{device.Name}' local IP {localIp}; stream URL = {audioUrl}");
 
-        var session = new CastSession(device);
+        ICastSession session = device switch
+        {
+            ChromecastDevice cc => new CastSession(cc),
+            DlnaDevice dlna     => new DlnaSession(dlna),
+            _ => throw new NotSupportedException($"Unknown device kind: {device.Kind}"),
+        };
+
         session.Disconnected += (_, _) =>
         {
-            _sessions.TryRemove(device.Host, out _);
+            _sessions.TryRemove(device.Id, out _);
             if (_sessions.IsEmpty) StopAudio();
         };
         session.ErrorOccurred  += (_, msg) => SessionError?.Invoke(this, $"{device.Name}: {msg}");
         session.VolumeReported += (_, level) => DeviceVolumeReported?.Invoke(this, (device, level));
 
-        _sessions[device.Host] = session;
-        await session.StartAsync(audioUrl, ct);
+        _sessions[device.Id] = session;
+        try
+        {
+            await session.StartAsync(audioUrl, ct);
+        }
+        catch
+        {
+            // Don't leave a half-started (zombie) session behind — it would desync the
+            // UI and block both stopping and re-casting. Tear it down and rethrow.
+            _sessions.TryRemove(device.Id, out _);
+            await session.DisposeAsync();
+            if (_sessions.IsEmpty) StopAudio();
+            throw;
+        }
     }
 
-    // Set a specific Chromecast's own volume (0–1). No-op if not currently casting to it.
-    public async Task SetDeviceVolumeAsync(ChromecastDevice device, float level)
+    // Set a specific device's own volume (0–1). No-op if not currently casting to it.
+    public async Task SetDeviceVolumeAsync(ICastDevice device, float level)
     {
-        if (_sessions.TryGetValue(device.Host, out var session))
+        if (_sessions.TryGetValue(device.Id, out var session))
             await session.SetVolumeAsync(level);
     }
 
     // Stop casting to a specific device.
-    public async Task StopCastingAsync(ChromecastDevice device)
+    public async Task StopCastingAsync(ICastDevice device)
     {
-        if (_sessions.TryRemove(device.Host, out var session))
+        if (_sessions.TryRemove(device.Id, out var session))
             await session.DisposeAsync();
 
         if (_sessions.IsEmpty) StopAudio();
     }
 
-    public bool IsCasting(ChromecastDevice device) => _sessions.ContainsKey(device.Host);
+    public bool IsCasting(ICastDevice device) => _sessions.ContainsKey(device.Id);
 
     // UDP connect trick: the OS picks the right local interface for the target IP.
     private static string GetLocalIpFor(string remoteHost)
@@ -186,6 +210,7 @@ public sealed class CastManager : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         _discovery.Dispose();
+        _dlna.Dispose();
         _capture?.Dispose();
 
         foreach (var (_, session) in _sessions)

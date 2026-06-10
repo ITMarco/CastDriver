@@ -8,10 +8,11 @@ public partial class DeviceViewModel : ObservableObject
     private readonly CastManager _manager;
     private bool _suppressVolumeCallback;
 
-    public ChromecastDevice Device { get; }
+    public ICastDevice Device { get; }
 
     public string Name => Device.Name;
-    public string Host => Device.Host;
+    public string Key  => Device.Id;
+    public string KindLabel => Device.Kind == CastKind.Dlna ? "DLNA" : "Cast";
 
     [ObservableProperty] private bool   _isCasting;
     [ObservableProperty] private bool   _isConnecting;
@@ -21,13 +22,13 @@ public partial class DeviceViewModel : ObservableObject
 
     public string VolumeLabel => $"{(int)Volume}%";
 
-    public DeviceViewModel(ChromecastDevice device, CastManager manager)
+    public DeviceViewModel(ICastDevice device, CastManager manager)
     {
         Device   = device;
         _manager = manager;
     }
 
-    // User dragged this device's slider → push the new level to the Chromecast.
+    // User dragged this device's slider → push the new level to the device.
     partial void OnVolumeChanged(double value)
     {
         OnPropertyChanged(nameof(VolumeLabel));

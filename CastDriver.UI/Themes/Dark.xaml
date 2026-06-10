@@ -240,8 +240,8 @@
                                             <ContentPresenter Grid.Column="0"
                                                               Content="{Binding SelectionBoxItem,
                                                                         RelativeSource={RelativeSource AncestorType=ComboBox}}"
-                                                              ContentTemplate="{Binding SelectionBoxItemTemplate,
-                                                                        RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                              TextElement.Foreground="{StaticResource TextPrimaryBrush}"
+                                                              TextBlock.Foreground="{StaticResource TextPrimaryBrush}"
                                                               Margin="10,0,0,0"
                                                               VerticalAlignment="Center"
                                                               HorizontalAlignment="Left"/>

@@ -13,7 +13,7 @@ namespace CastDriver.UI.ViewModels;
 public partial class MainViewModel : ObservableObject, IAsyncDisposable
 {
     private readonly CastManager   _manager = new();
-    private readonly AppSettings   _settings = AppSettings.Load();
+    private readonly AppSettings   _settings = AppSettings.Current;
     private MMDevice?              _captureDevice;
     private readonly DispatcherTimer _levelTimer;
     private bool                  _initializing = true;
@@ -26,7 +26,7 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private float   _audioLevel;
     [ObservableProperty] private bool    _isDriverInstalled;
     [ObservableProperty] private bool    _isScanning      = true;
-    [ObservableProperty] private string  _discoveryStatus = "Scanning for Chromecast devices…";
+    [ObservableProperty] private string  _discoveryStatus = "Scanning for cast devices…";
     [ObservableProperty] private bool    _isDefaultDevice;
     [ObservableProperty] private string  _captureDeviceName = "Loading…";
     [ObservableProperty] private bool    _isCastOnlyMode;
@@ -38,6 +38,7 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         _levelTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) }; // ~30 fps
         _levelTimer.Tick += OnLevelTick;
 
+        Log.Enabled                   = _settings.LoggingEnabled;
         _manager.SourceDeviceId       = _settings.SourceDeviceId;
         _manager.DeviceDiscovered    += OnDeviceDiscovered;
         _manager.DeviceLost          += OnDeviceLost;
@@ -62,7 +63,7 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         IsScanning = false;
         UpdateDiscoveryStatus(Devices.Count == 0
-            ? "No Chromecast devices found on your network."
+            ? "No cast devices found on your network."
             : $"{Devices.Count} device(s) found.");
     }
 
@@ -149,30 +150,30 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     // ── Device management ────────────────────────────────────────────────────
 
-    private void OnDeviceDiscovered(object? sender, ChromecastDevice d)
+    private void OnDeviceDiscovered(object? sender, ICastDevice d)
     {
         WpfApp.Current.Dispatcher.Invoke(() =>
         {
-            if (!Devices.Any(x => x.Host == d.Host))
+            if (!Devices.Any(x => x.Key == d.Id))
                 Devices.Add(new DeviceViewModel(d, _manager));
 
             UpdateDiscoveryStatus($"{Devices.Count} device(s) found.");
         });
     }
 
-    private void OnDeviceLost(object? sender, ChromecastDevice d)
+    private void OnDeviceLost(object? sender, ICastDevice d)
     {
         WpfApp.Current.Dispatcher.Invoke(() =>
         {
-            var vm = Devices.FirstOrDefault(x => x.Host == d.Host);
+            var vm = Devices.FirstOrDefault(x => x.Key == d.Id);
             if (vm != null) Devices.Remove(vm);
         });
     }
 
-    private void OnDeviceVolumeReported(object? sender, (ChromecastDevice Device, float Level) e)
+    private void OnDeviceVolumeReported(object? sender, (ICastDevice Device, float Level) e)
     {
         WpfApp.Current.Dispatcher.Invoke(() =>
-            Devices.FirstOrDefault(x => x.Host == e.Device.Host)?.SetVolumeFromDevice(e.Level));
+            Devices.FirstOrDefault(x => x.Key == e.Device.Id)?.SetVolumeFromDevice(e.Level));
     }
 
     [RelayCommand]

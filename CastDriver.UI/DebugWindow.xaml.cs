@@ -13,8 +13,12 @@ public partial class DebugWindow : Window
         RefreshLog();
     }
 
-    private void OnToggleLogging(object sender, RoutedEventArgs e) =>
+    private void OnToggleLogging(object sender, RoutedEventArgs e)
+    {
         Log.Enabled = LoggingCheck.IsChecked == true;
+        AppSettings.Current.LoggingEnabled = Log.Enabled;
+        AppSettings.Current.Save();
+    }
 
     private void OnRefresh(object sender, RoutedEventArgs e) => RefreshLog();
 

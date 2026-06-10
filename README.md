@@ -40,7 +40,32 @@ dotnet build
 dotnet run --project CastDriver.UI
 ```
 
+## Installing / first run (end users)
+
+CastDriver ships as a single self-contained `.exe` — **no .NET install required**.
+
+1. **Download** `CastDriver.exe` and double-click it. It lives in the system tray (a small cast icon); click the tray icon to open the window.
+2. **SmartScreen:** because the app isn't code-signed, Windows may show *"Windows protected your PC."* Click **More info → Run anyway**.
+3. **Firewall:** on first launch Windows asks whether to allow network access. Click **Allow** — this is required so your Chromecast / TV can reach the audio stream. (If you dismissed it, casting may not produce sound until you allow CastDriver through the firewall for private networks.)
+4. Pick a **source** (your speakers/output, or an input like a line-in), then hit **Cast ▶** next to a discovered device. Adjust each device's volume independently; **Cast Only** mutes your local speakers while the cast keeps playing.
+
+Supports **Chromecast** (and Google speaker groups) plus **DLNA/UPnP** renderers such as smart TVs and AV receivers.
+
+## Building a release
+
+Self-contained single-file build (what you ship):
+
+```powershell
+dotnet publish CastDriver.UI -c Release -r win-x64 --self-contained true `
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+  -p:EnableCompressionInSingleFile=true -p:DebugType=none
+```
+
+Output: `CastDriver.UI/bin/Release/net10.0-windows/win-x64/publish/CastDriver.UI.exe`
+(rename to `CastDriver.exe` freely before distributing).
+
 ## Notes
 
-- A Windows Firewall rule allowing inbound connections to the app may be needed so Chromecasts can reach the local stream.
+- A Windows Firewall rule allowing inbound connections to the app may be needed so devices can reach the local stream.
 - No virtual audio driver is required; CastDriver captures the default render device directly.
+- Licensed under **GNU GPL v3.0** — see [LICENSE](LICENSE).

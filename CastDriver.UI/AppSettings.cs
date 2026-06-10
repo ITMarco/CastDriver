@@ -6,8 +6,18 @@ namespace CastDriver.UI;
 // Small JSON-backed settings file in %APPDATA%\CastDriver\settings.json.
 public sealed class AppSettings
 {
+    // Shared instance — load once, everyone reads/writes the same object.
+    private static AppSettings? _current;
+    public static AppSettings Current => _current ??= Load();
+
     // The selected audio source endpoint id (null = default render device).
     public string? SourceDeviceId { get; set; }
+
+    // Whether diagnostic logging is enabled (toggled from the Debug screen).
+    public bool LoggingEnabled { get; set; } = true;
+
+    // Whether the window is pinned open (doesn't auto-hide on focus loss).
+    public bool Pinned { get; set; }
 
     private static string Dir =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "CastDriver");

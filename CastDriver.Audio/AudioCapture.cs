@@ -8,6 +8,7 @@ namespace CastDriver.Audio;
 public sealed record AudioEndpointInfo(string Id, string Name, bool IsInput)
 {
     public string DisplayName => (IsInput ? "🎤 " : "🔊 ") + Name;
+    public override string ToString() => DisplayName;
 }
 
 public sealed class AudioCapture : IDisposable
