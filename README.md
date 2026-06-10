@@ -5,6 +5,16 @@ playing on your default audio output (WASAPI loopback) and streams it live to on
 Chromecasts on your network — with per-device volume control, a system-tray UI, and no
 virtual audio driver required.
 
+## Download
+
+**[⬇ Download the latest release](https://github.com/ITMarco/CastDriver/releases/latest)** — grab `CastDriver.exe` (~4 MB).
+
+This build needs the **.NET 10 Desktop Runtime** (a free, one-time Microsoft install):
+
+👉 **[Download .NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)** — under *Run desktop apps*, pick **.NET Desktop Runtime → Windows x64**.
+
+Then run `CastDriver.exe` (see [*Installing / first run*](#installing--first-run-end-users) below). A larger all-in-one build that needs no .NET install may be offered separately.
+
 ## Features
 
 - **Multi-device casting** — stream to several Chromecasts at once, discovered automatically via mDNS.
