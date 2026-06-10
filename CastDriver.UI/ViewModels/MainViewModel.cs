@@ -113,15 +113,15 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         _ = ApplyCodecAsync(useMp3);
     }
 
-    // Changing codec changes the stream's content type, so any active casts must be
-    // re-established. Stop them, switch, and let the user re-cast.
+    // Changing codec changes the stream's content type, so active casts are re-established
+    // automatically (stop, switch, re-cast at the same volume).
     private async Task ApplyCodecAsync(bool useMp3)
     {
-        await StopAll();
-        _manager.Codec = useMp3 ? StreamCodec.Mp3 : StreamCodec.Wav;
-        UpdateDiscoveryStatus(useMp3
-            ? "Switched to MP3 — re-cast to apply."
-            : "Switched to WAV — re-cast to apply.");
+        await RestartCastsAsync(() =>
+        {
+            _manager.Codec = useMp3 ? StreamCodec.Mp3 : StreamCodec.Wav;
+            return Task.CompletedTask;
+        });
     }
 
     // ── Update check ───────────────────────────────────────────────────────────
@@ -158,8 +158,11 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         _settings.SourceDeviceId = value.Id;
         _settings.Save();
-        _ = _manager.SetSourceDeviceAsync(value.Id);
-        RefreshCaptureDevice(value.Id);
+        _ = RestartCastsAsync(async () =>
+        {
+            await _manager.SetSourceDeviceAsync(value.Id);
+            RefreshCaptureDevice(value.Id);
+        });
     }
 
     private void RefreshCaptureDevice(string? id)
@@ -266,20 +269,25 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         }
         else
         {
-            vm.IsConnecting = true;
-            vm.HasError     = false;
-            try
-            {
-                await _manager.CastToDeviceAsync(vm.Device);
-                vm.IsCasting = true;
-            }
-            catch (Exception ex)
-            {
-                vm.HasError  = true;
-                vm.ErrorText = ex.Message;
-            }
-            finally { vm.IsConnecting = false; }
+            await CastDeviceAsync(vm);
         }
+    }
+
+    private async Task CastDeviceAsync(DeviceViewModel vm)
+    {
+        vm.IsConnecting = true;
+        vm.HasError     = false;
+        try
+        {
+            await _manager.CastToDeviceAsync(vm.Device);
+            vm.IsCasting = true;
+        }
+        catch (Exception ex)
+        {
+            vm.HasError  = true;
+            vm.ErrorText = ex.Message;
+        }
+        finally { vm.IsConnecting = false; }
     }
 
     [RelayCommand]
@@ -288,6 +296,24 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         var casting = Devices.Where(d => d.IsCasting).ToList();
         foreach (var vm in casting)
             await ToggleDevice(vm);
+    }
+
+    // Apply a change that invalidates the live stream (source or codec switch): stop the
+    // active casts, apply the change, then automatically re-cast to the same devices at
+    // their previous volume — so the user never has to manually restart.
+    private async Task RestartCastsAsync(Func<Task> applyChange)
+    {
+        var resume = Devices.Where(d => d.IsCasting)
+                            .Select(d => (vm: d, vol: d.Volume)).ToList();
+        await StopAll();
+        await applyChange();
+        foreach (var (vm, vol) in resume)
+        {
+            await CastDeviceAsync(vm);
+            if (vm.IsCasting) vm.Volume = vol; // re-apply the device's volume
+        }
+        if (resume.Count > 0)
+            UpdateDiscoveryStatus($"{resume.Count} device(s) resumed.");
     }
 
     // ── Driver ───────────────────────────────────────────────────────────────

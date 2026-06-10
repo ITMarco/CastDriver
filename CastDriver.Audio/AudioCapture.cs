@@ -86,43 +86,58 @@ public sealed class AudioCapture : ICaptureSource
         return list;
     }
 
-    // Apps that currently have an audio session on the default render device.
+    // Apps that currently have an audio session on the default render device. Multi-process
+    // apps (Firefox, Chrome, …) play audio from child processes, so we collapse each app to
+    // ONE entry that targets its main (window-owning) process — process-loopback then
+    // captures the whole tree, i.e. audio from any window/tab of that app.
     public static IReadOnlyList<AudioEndpointInfo> ListAudioApps(MMDeviceEnumerator? enumerator = null)
     {
         var owns = enumerator == null;
         enumerator ??= new MMDeviceEnumerator();
-        var apps = new List<AudioEndpointInfo>();
-        var seen = new HashSet<uint>();
+        var byProcessName = new Dictionary<string, AudioEndpointInfo>(StringComparer.OrdinalIgnoreCase);
         try
         {
             var dev      = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
             var sessions = dev.AudioSessionManager.Sessions;
             for (var i = 0; i < sessions.Count; i++)
             {
-                var s   = sessions[i];
-                var pid = s.GetProcessID;
-                if (pid == 0 || !seen.Add(pid)) continue;
+                var pid = sessions[i].GetProcessID;
+                if (pid == 0) continue;
 
-                var name = ProcessName(pid);
-                if (name == null) continue; // process gone / inaccessible
-                apps.Add(new AudioEndpointInfo($"{AppIdPrefix}{pid}", name, SourceKind.App, pid));
+                string procName;
+                try { using var p = Process.GetProcessById((int)pid); procName = p.ProcessName; }
+                catch { continue; } // process gone / inaccessible
+
+                if (byProcessName.ContainsKey(procName)) continue; // already have this app
+
+                // Target the main (window-owning) process of this app, so the tree-include
+                // captures audio from whichever child process is actually playing.
+                var (targetPid, title) = MainProcessOf(procName, pid);
+                var display = string.IsNullOrWhiteSpace(title) ? procName : $"{procName} — {title}";
+                byProcessName[procName] =
+                    new AudioEndpointInfo($"{AppIdPrefix}{targetPid}", display, SourceKind.App, targetPid);
             }
         }
         catch { /* session enumeration unavailable */ }
         finally { if (owns) enumerator.Dispose(); }
 
-        return apps.OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        return byProcessName.Values.OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
-    private static string? ProcessName(uint pid)
+    // Among all processes with this name, prefer the one that owns a visible main window
+    // (the app's root process); fall back to the audio-session process itself.
+    private static (uint Pid, string? Title) MainProcessOf(string processName, uint fallbackPid)
     {
         try
         {
-            using var p = Process.GetProcessById((int)pid);
-            var title = p.MainWindowTitle;
-            return !string.IsNullOrWhiteSpace(title) ? $"{p.ProcessName} — {title}" : p.ProcessName;
+            foreach (var p in Process.GetProcessesByName(processName))
+            {
+                if (p.MainWindowHandle != IntPtr.Zero && !string.IsNullOrWhiteSpace(p.MainWindowTitle))
+                    return ((uint)p.Id, p.MainWindowTitle);
+            }
         }
-        catch { return null; }
+        catch { /* fall through */ }
+        return (fallbackPid, null);
     }
 
     // Resolve a device id to a device + capture mode. App ids and unknown ids fall back
