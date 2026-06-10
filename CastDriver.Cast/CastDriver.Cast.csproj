@@ -16,4 +16,9 @@
     <ProjectReference Include="..\CastDriver.Audio\CastDriver.Audio.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Artwork served to receivers as the "now casting" image. -->
+    <EmbeddedResource Include="art.png" />
+  </ItemGroup>
+
 </Project>

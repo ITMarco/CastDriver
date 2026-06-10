@@ -29,6 +29,9 @@ public sealed class AppSettings
     // When true, the app launches hidden in the tray instead of showing its window.
     public bool StartMinimized { get; set; }
 
+    // Stream prebuffer in ms — the latency/stability cushion (lower = less lag).
+    public int PrebufferMs { get; set; } = 1500;
+
     private static string Dir =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "CastDriver");
 

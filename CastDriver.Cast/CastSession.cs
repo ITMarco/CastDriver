@@ -20,8 +20,7 @@ public sealed class CastSession : ICastSession
 
     private CastChannel? _channel;
     private string?      _sessionTransportId;
-    private string?      _pendingAudioUrl;
-    private string       _contentType = "audio/wav";
+    private CastMedia?   _media;
     private bool         _sessionConnected;
     private int          _requestId;
     private int          _mediaSessionId;
@@ -48,13 +47,12 @@ public sealed class CastSession : ICastSession
         await SendJsonAsync(NsReceiver, ReceiverId, json, ct);
     }
 
-    public async Task StartAsync(string audioUrl, string contentType, CancellationToken ct = default)
+    public async Task StartAsync(CastMedia media, CancellationToken ct = default)
     {
-        _pendingAudioUrl  = audioUrl;
-        _contentType      = contentType;
-        Log.Write($"[cast] connecting to {Device.Name} @ {Device.Host}:{Device.Port}, will load {audioUrl} ({contentType})");
-        _channel          = await CastChannel.ConnectAsync(Device.Host, Device.Port, ct);
-        IsActive          = true;
+        _media   = media;
+        Log.Write($"[cast] connecting to {Device.Name} @ {Device.Host}:{Device.Port}, will load {media.Url} ({media.ContentType})");
+        _channel = await CastChannel.ConnectAsync(Device.Host, Device.Port, ct);
+        IsActive = true;
 
         // Step 1 — open the transport-level connection to the receiver.
         await SendJsonAsync(NsConnection, ReceiverId, """{"type":"CONNECT","origin":{}}""", ct);
@@ -218,24 +216,34 @@ public sealed class CastSession : ICastSession
             // Connect to the launched app's session transport.
             await SendJsonAsync(NsConnection, tid, """{"type":"CONNECT","origin":{}}""", ct);
 
-            if (_pendingAudioUrl != null)
+            if (_media != null)
             {
-                await LoadMediaAsync(_pendingAudioUrl, ct);
-                _pendingAudioUrl = null;
+                await LoadMediaAsync(_media, ct);
+                _media = _media with { }; // keep for potential reuse; not nulled
             }
             break;
         }
     }
 
-    private async Task LoadMediaAsync(string url, CancellationToken ct)
+    private async Task LoadMediaAsync(CastMedia media, CancellationToken ct)
     {
         if (_sessionTransportId == null) return;
         var id = NextId();
-        Log.Write($"[cast] LOAD {url} (transport {_sessionTransportId})");
-        await SendJsonAsync(NsMedia, _sessionTransportId,
-            $$"""{"type":"LOAD","requestId":{{id}},"media":{"contentId":"{{url}}","contentType":"{{_contentType}}","streamType":"LIVE"},"autoplay":true}""",
-            ct);
+        Log.Write($"[cast] LOAD {media.Url} (transport {_sessionTransportId})");
+        // Built by concatenation (not a raw interpolated string) because the nested JSON
+        // braces collide with $$"""…""" interpolation rules.
+        var json =
+            "{\"type\":\"LOAD\",\"requestId\":" + id +
+            ",\"media\":{\"contentId\":\"" + JsonEscape(media.Url) + "\"" +
+            ",\"contentType\":\"" + media.ContentType + "\",\"streamType\":\"LIVE\"" +
+            ",\"metadata\":{\"metadataType\":0,\"title\":\"" + JsonEscape(media.Title) + "\"" +
+            ",\"images\":[{\"url\":\"" + JsonEscape(media.ArtUrl) + "\"}]}}" +
+            ",\"autoplay\":true}";
+        await SendJsonAsync(NsMedia, _sessionTransportId, json, ct);
     }
+
+    private static string JsonEscape(string s) =>
+        s.Replace("\\", "\\\\").Replace("\"", "\\\"");
 
     // ── Heartbeat ────────────────────────────────────────────────────────────
 

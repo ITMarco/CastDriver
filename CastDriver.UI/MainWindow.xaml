@@ -175,6 +175,23 @@
                 <ComboBox Style="{StaticResource DarkComboBox}"
                           ItemsSource="{Binding CodecOptions}"
                           SelectedItem="{Binding SelectedCodec, Mode=TwoWay}"/>
+
+                <Grid Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Latency" Style="{StaticResource SmallStyle}"
+                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <Slider Grid.Column="1" Minimum="300" Maximum="4000"
+                            Value="{Binding LatencyMs, Mode=TwoWay}"
+                            Style="{StaticResource VolumeSliderStyle}"
+                            Height="18" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="2" Text="{Binding LatencyLabel}"
+                               Style="{StaticResource SmallStyle}" VerticalAlignment="Center"
+                               Margin="8,0,0,0" MinWidth="52" TextAlignment="Right"/>
+                </Grid>
             </StackPanel>
 
             <!-- ── Volume section ────────────────────────────────── -->

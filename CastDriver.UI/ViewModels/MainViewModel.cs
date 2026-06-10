@@ -33,10 +33,12 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private bool    _isCastOnlyMode;
     [ObservableProperty] private bool    _updateAvailable;
     [ObservableProperty] private string  _updateText = "";
+    [ObservableProperty] private double  _latencyMs = 1500;
     private string _updateUrl = "";
 
-    public string VolumeLabel => $"{(int)Volume}%";
-    public string AppVersion  => AppInfo.Display;
+    public string VolumeLabel  => $"{(int)Volume}%";
+    public string AppVersion   => AppInfo.Display;
+    public string LatencyLabel => $"{(int)LatencyMs} ms";
 
     public MainViewModel()
     {
@@ -47,10 +49,13 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         _manager.SourceDeviceId       = _settings.SourceDeviceId;
         _manager.Codec                = _settings.UseMp3 ? StreamCodec.Mp3 : StreamCodec.Wav;
         _manager.Mp3Bitrate           = _settings.Mp3Bitrate;
+        _manager.PrebufferMs          = _settings.PrebufferMs;
+        _latencyMs                    = _settings.PrebufferMs;
         _manager.DeviceDiscovered    += OnDeviceDiscovered;
         _manager.DeviceLost          += OnDeviceLost;
         _manager.SessionError        += (_, msg) => UpdateDiscoveryStatus(msg);
         _manager.DeviceVolumeReported += OnDeviceVolumeReported;
+        _manager.CastEnded           += OnCastEnded;
 
         _ = InitializeAsync();
     }
@@ -63,6 +68,7 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         SelectedCodec = _settings.UseMp3 ? Mp3Option : WavOption;
         _settings.SourceDeviceId = SelectedSource?.Id;   // baseline for change-detection
         _manager.SourceDeviceId  = SelectedSource?.Id;   // keep manager in sync
+        _manager.NowPlayingTitle = TitleFor(SelectedSource);
         RefreshCaptureDevice(SelectedSource?.Id);
 
         _manager.StartDiscovery();
@@ -158,10 +164,38 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         _settings.SourceDeviceId = value.Id;
         _settings.Save();
+        _manager.NowPlayingTitle = TitleFor(value);
         _ = RestartCastsAsync(async () =>
         {
             await _manager.SetSourceDeviceAsync(value.Id);
             RefreshCaptureDevice(value.Id);
+        });
+    }
+
+    // "Now casting" title: the app name for an app source, else null (manager uses PC name).
+    private static string? TitleFor(AudioEndpointInfo? source) =>
+        source is { Kind: SourceKind.App } ? source.Name : null;
+
+    // ── Latency / buffer ───────────────────────────────────────────────────────
+
+    partial void OnLatencyMsChanged(double value)
+    {
+        OnPropertyChanged(nameof(LatencyLabel));
+        if (_initializing) return;
+        _manager.PrebufferMs    = (int)value;
+        _settings.PrebufferMs   = (int)value;
+        _settings.Save();
+    }
+
+    private void OnCastEnded(object? sender, ICastDevice d)
+    {
+        WpfApp.Current.Dispatcher.Invoke(() =>
+        {
+            var vm = Devices.FirstOrDefault(x => x.Key == d.Id);
+            if (vm == null) return;
+            vm.IsCasting = false;
+            vm.HasError  = true;
+            vm.ErrorText = "Connection lost";
         });
     }
 

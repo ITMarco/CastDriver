@@ -33,8 +33,9 @@ public sealed class LocalMediaServer : IAsyncDisposable
     // Initial silence sent to each client on connect. The receiver pulls this instantly
     // to build its playback buffer; after that we can only feed at real time, so this
     // value sets BOTH the end-to-end latency and the stability cushion. Too small ⇒
-    // the receiver rides the edge of underrun and flaps PLAYING/BUFFERING.
-    private const int PrebufferMs = 1500;
+    // the receiver rides the edge of underrun and flaps PLAYING/BUFFERING. User-adjustable
+    // via the latency slider; takes effect on the next connection.
+    public int PrebufferMs { get; set; } = 1500;
     private System.Threading.Timer? _silenceTimer;
     private byte[]                   _silenceChunk = [];
     private long                     _lastDataTicks;
@@ -132,6 +133,7 @@ public sealed class LocalMediaServer : IAsyncDisposable
 
     // Returns the URL the Chromecast should request.
     public string GetStreamUrl(string localIp) => $"http://{localIp}:{Port}/{FileName}";
+    public string GetArtUrl(string localIp)     => $"http://{localIp}:{Port}/art.png";
 
     public Task RunAsync() => RunAsync(_cts.Token);
 
@@ -149,10 +151,24 @@ public sealed class LocalMediaServer : IAsyncDisposable
 
     private async Task ServeClientAsync(TcpClient tcp, CancellationToken ct)
     {
-        var clientId = Guid.NewGuid();
-        var remote   = tcp.Client.RemoteEndPoint?.ToString() ?? "?";
+        var remote = tcp.Client.RemoteEndPoint?.ToString() ?? "?";
         Log.Write($"[http] client connected from {remote}");
 
+        tcp.NoDelay = true;
+        var stream  = tcp.GetStream();
+
+        // Read the request line so we can route (audio stream vs. the "now casting" artwork).
+        var requestLine = await DiscardHttpRequestAsync(stream, ct);
+        Log.Write($"[http] request from {remote}: {requestLine}");
+
+        if (requestLine.Contains("/art.png", StringComparison.OrdinalIgnoreCase))
+        {
+            await ServeArtAsync(stream, ct);
+            tcp.Dispose();
+            return;
+        }
+
+        var clientId = Guid.NewGuid();
         var channel  = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(64)
         {
             FullMode = BoundedChannelFullMode.DropOldest,
@@ -162,13 +178,6 @@ public sealed class LocalMediaServer : IAsyncDisposable
         long sent = 0;
         try
         {
-            tcp.NoDelay = true;
-            var stream = tcp.GetStream();
-
-            // Consume HTTP request headers — we don't need them (but log the request line).
-            var requestLine = await DiscardHttpRequestAsync(stream, ct);
-            Log.Write($"[http] request from {remote}: {requestLine}");
-
             // Send HTTP response headers (chunked — an endless live stream, no Content-Length).
             var headers = BuildHttpHeaders();
             await stream.WriteAsync(headers, ct);
@@ -246,6 +255,40 @@ public sealed class LocalMediaServer : IAsyncDisposable
         var text = all.ToString();
         var nl   = text.IndexOf('\r');
         return nl > 0 ? text[..nl] : text.Trim();
+    }
+
+    // Serves the embedded "now casting" artwork as a normal (finite) PNG response.
+    private static readonly byte[] ArtPng = LoadArt();
+    private static async Task ServeArtAsync(NetworkStream stream, CancellationToken ct)
+    {
+        var header = Encoding.ASCII.GetBytes(
+            "HTTP/1.1 200 OK\r\n" +
+            "Content-Type: image/png\r\n" +
+            $"Content-Length: {ArtPng.Length}\r\n" +
+            "Cache-Control: max-age=3600\r\n" +
+            "Connection: close\r\n\r\n");
+        try
+        {
+            await stream.WriteAsync(header, ct);
+            if (ArtPng.Length > 0) await stream.WriteAsync(ArtPng, ct);
+        }
+        catch { /* client went away */ }
+    }
+
+    private static byte[] LoadArt()
+    {
+        try
+        {
+            var asm  = typeof(LocalMediaServer).Assembly;
+            var name = asm.GetManifestResourceNames()
+                          .FirstOrDefault(n => n.EndsWith("art.png", StringComparison.OrdinalIgnoreCase));
+            if (name == null) return [];
+            using var s  = asm.GetManifestResourceStream(name)!;
+            using var ms = new MemoryStream();
+            s.CopyTo(ms);
+            return ms.ToArray();
+        }
+        catch { return []; }
     }
 
     private byte[] BuildHttpHeaders()

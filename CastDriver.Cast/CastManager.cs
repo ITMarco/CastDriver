@@ -28,6 +28,20 @@ public sealed class CastManager : IAsyncDisposable
     public StreamCodec Codec { get; set; } = StreamCodec.Wav;
     public int         Mp3Bitrate { get; set; } = 256;
 
+    // "Now casting" title shown on receivers (e.g. the app name). Falls back to the PC name.
+    public string? NowPlayingTitle { get; set; }
+
+    // Prebuffer / latency cushion in ms (forwarded to the media server).
+    public int PrebufferMs
+    {
+        get => _mediaServer.PrebufferMs;
+        set => _mediaServer.PrebufferMs = value;
+    }
+
+    // Device ids the user wants casting — drives auto-reconnect on unexpected drops.
+    private readonly HashSet<string> _desired = [];
+    public event EventHandler<ICastDevice>? CastEnded; // raised when a cast stops for good
+
     // User-controlled cast stream level, independent of the local PC volume.
     // 0 = silent, 1 = source level. Applied as software gain to the PCM we stream.
     // The capture is (on this setup) pre-volume, so the PC slider does NOT affect it.
@@ -154,14 +168,18 @@ public sealed class CastManager : IAsyncDisposable
     // Begin casting to a specific device (called when user checks a device in the UI).
     public async Task CastToDeviceAsync(ICastDevice device, CancellationToken ct = default)
     {
+        _desired.Add(device.Id);
         if (_sessions.ContainsKey(device.Id)) return;
 
         if (!_capturing)
             await StartAudioAsync();
 
         var localIp  = GetLocalIpFor(device.Host);
-        var audioUrl = _mediaServer.GetStreamUrl(localIp);
-        Log.Write($"[cast] {device.Kind} '{device.Name}' local IP {localIp}; stream URL = {audioUrl}");
+        var media    = new CastMedia(
+            _mediaServer.GetStreamUrl(localIp), _mediaServer.ContentType,
+            NowPlayingTitle is { Length: > 0 } t ? t : $"CastDriver — {Environment.MachineName}",
+            _mediaServer.GetArtUrl(localIp));
+        Log.Write($"[cast] {device.Kind} '{device.Name}' local IP {localIp}; stream URL = {media.Url}");
 
         ICastSession session = device switch
         {
@@ -173,7 +191,8 @@ public sealed class CastManager : IAsyncDisposable
         session.Disconnected += (_, _) =>
         {
             _sessions.TryRemove(device.Id, out _);
-            if (_sessions.IsEmpty) StopAudio();
+            if (_desired.Contains(device.Id)) _ = ReconnectAsync(device);
+            else if (_sessions.IsEmpty)       StopAudio();
         };
         session.ErrorOccurred  += (_, msg) => SessionError?.Invoke(this, $"{device.Name}: {msg}");
         session.VolumeReported += (_, level) => DeviceVolumeReported?.Invoke(this, (device, level));
@@ -181,7 +200,7 @@ public sealed class CastManager : IAsyncDisposable
         _sessions[device.Id] = session;
         try
         {
-            await session.StartAsync(audioUrl, _mediaServer.ContentType, ct);
+            await session.StartAsync(media, ct);
         }
         catch
         {
@@ -194,6 +213,28 @@ public sealed class CastManager : IAsyncDisposable
         }
     }
 
+    // Auto-reconnect after an unexpected drop (Wi-Fi blip, receiver hiccup). Retries with
+    // backoff while the user still wants this device casting; gives up after a few tries.
+    private async Task ReconnectAsync(ICastDevice device)
+    {
+        for (var attempt = 1; attempt <= 5; attempt++)
+        {
+            if (!_desired.Contains(device.Id)) return; // user stopped it meanwhile
+            await Task.Delay(2500);
+            if (!_desired.Contains(device.Id) || _sessions.ContainsKey(device.Id)) return;
+
+            Log.Write($"[cast] reconnect attempt {attempt} → {device.Name}");
+            try { await CastToDeviceAsync(device); return; }
+            catch (Exception ex) { Log.Write($"[cast] reconnect failed: {ex.Message}"); }
+        }
+
+        // Out of attempts — stop wanting it and tell the UI.
+        _desired.Remove(device.Id);
+        if (_sessions.IsEmpty) StopAudio();
+        CastEnded?.Invoke(this, device);
+        Log.Write($"[cast] giving up reconnect to {device.Name}");
+    }
+
     // Set a specific device's own volume (0–1). No-op if not currently casting to it.
     public async Task SetDeviceVolumeAsync(ICastDevice device, float level)
     {
@@ -204,6 +245,8 @@ public sealed class CastManager : IAsyncDisposable
     // Stop casting to a specific device.
     public async Task StopCastingAsync(ICastDevice device)
     {
+        _desired.Remove(device.Id); // intentional stop — don't auto-reconnect
+
         if (_sessions.TryRemove(device.Id, out var session))
             await session.DisposeAsync();
 
