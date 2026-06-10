@@ -519,14 +519,7 @@
             <!-- ── Footer ────────────────────────────────────────── -->
             <StackPanel Margin="16,4,16,16">
 
-                <!-- Start with Windows -->
-                <CheckBox Content="Start with Windows"
-                          IsChecked="{Binding StartsWithWindows, Mode=TwoWay}"
-                          Foreground="{StaticResource TextSecondaryBrush}"
-                          FontSize="12"
-                          Margin="0,0,0,8"/>
-
-<!-- Stop All + version -->
+                <!-- Stop All + version -->
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>

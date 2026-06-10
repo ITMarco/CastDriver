@@ -12,8 +12,19 @@ public partial class AboutWindow : Window
     public AboutWindow()
     {
         InitializeComponent();
-        VersionText.Text     = $"Version {AppInfo.Short}";
-        DisableCheck.IsChecked = AppSettings.Current.DisableUpdateCheck;
+        VersionText.Text       = $"Version {AppInfo.Short}";
+        StartupCheck.IsChecked   = StartupRegistration.Enabled;
+        MinimizedCheck.IsChecked = AppSettings.Current.StartMinimized;
+        DisableCheck.IsChecked   = AppSettings.Current.DisableUpdateCheck;
+    }
+
+    private void OnToggleStartup(object sender, RoutedEventArgs e) =>
+        StartupRegistration.Enabled = StartupCheck.IsChecked == true;
+
+    private void OnToggleStartMinimized(object sender, RoutedEventArgs e)
+    {
+        AppSettings.Current.StartMinimized = MinimizedCheck.IsChecked == true;
+        AppSettings.Current.Save();
     }
 
     private async void OnCheckUpdates(object sender, RoutedEventArgs e)

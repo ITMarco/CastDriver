@@ -22,9 +22,9 @@ public partial class App : Application
 
         BuildTrayIcon();
 
-        // Show the window on launch rather than starting hidden in the tray.
-        // (A "start minimized" preference will join the planned "auto-stream on start".)
-        _window.ShowAtTrayCorner();
+        // Show the window on launch unless the user opted to start minimized in the tray.
+        if (!AppSettings.Current.StartMinimized)
+            _window.ShowAtTrayCorner();
     }
 
     private void BuildTrayIcon()

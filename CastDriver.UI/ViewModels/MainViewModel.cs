@@ -341,29 +341,6 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         System.Diagnostics.Process.Start("rundll32.exe", "shell32.dll,Control_RunDLL mmsys.cpl,,0");
     }
 
-    // ── Startup with Windows ─────────────────────────────────────────────────
-
-    public bool StartsWithWindows
-    {
-        get
-        {
-            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
-                @"Software\Microsoft\Windows\CurrentVersion\Run");
-            return key?.GetValue("CastDriver") != null;
-        }
-        set
-        {
-            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
-                @"Software\Microsoft\Windows\CurrentVersion\Run", writable: true);
-            if (key == null) return;
-            if (value)
-                key.SetValue("CastDriver", $"\"{Environment.ProcessPath}\"");
-            else
-                key.DeleteValue("CastDriver", throwOnMissingValue: false);
-            OnPropertyChanged();
-        }
-    }
-
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private void UpdateDiscoveryStatus(string msg) =>
