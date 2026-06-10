@@ -21,6 +21,7 @@ public sealed class CastSession : ICastSession
     private CastChannel? _channel;
     private string?      _sessionTransportId;
     private string?      _pendingAudioUrl;
+    private string       _contentType = "audio/wav";
     private bool         _sessionConnected;
     private int          _requestId;
     private int          _mediaSessionId;
@@ -46,10 +47,11 @@ public sealed class CastSession : ICastSession
         await SendJsonAsync(NsReceiver, ReceiverId, json, ct);
     }
 
-    public async Task StartAsync(string audioUrl, CancellationToken ct = default)
+    public async Task StartAsync(string audioUrl, string contentType, CancellationToken ct = default)
     {
         _pendingAudioUrl  = audioUrl;
-        Log.Write($"[cast] connecting to {Device.Name} @ {Device.Host}:{Device.Port}, will load {audioUrl}");
+        _contentType      = contentType;
+        Log.Write($"[cast] connecting to {Device.Name} @ {Device.Host}:{Device.Port}, will load {audioUrl} ({contentType})");
         _channel          = await CastChannel.ConnectAsync(Device.Host, Device.Port, ct);
         IsActive          = true;
 
@@ -217,7 +219,7 @@ public sealed class CastSession : ICastSession
         var id = NextId();
         Log.Write($"[cast] LOAD {url} (transport {_sessionTransportId})");
         await SendJsonAsync(NsMedia, _sessionTransportId,
-            $$"""{"type":"LOAD","requestId":{{id}},"media":{"contentId":"{{url}}","contentType":"audio/wav","streamType":"LIVE"},"autoplay":true}""",
+            $$"""{"type":"LOAD","requestId":{{id}},"media":{"contentId":"{{url}}","contentType":"{{_contentType}}","streamType":"LIVE"},"autoplay":true}""",
             ct);
     }
 

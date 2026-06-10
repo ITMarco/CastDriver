@@ -25,11 +25,11 @@ public sealed class DlnaSession : ICastSession
 
     public DlnaSession(DlnaDevice device) => _device = device;
 
-    public async Task StartAsync(string audioUrl, CancellationToken ct = default)
+    public async Task StartAsync(string audioUrl, string contentType, CancellationToken ct = default)
     {
         try
         {
-            var metadata = BuildDidl(audioUrl);
+            var metadata = BuildDidl(audioUrl, contentType);
             Log.Write($"[dlna] SetAVTransportURI {audioUrl} → {_device.Name}");
             await SendTolerantAsync(_device.AvTransportControlUrl, AvTransport, "SetAVTransportURI",
                 $"<InstanceID>0</InstanceID><CurrentURI>{Xml(audioUrl)}</CurrentURI>" +
@@ -133,14 +133,14 @@ public sealed class DlnaSession : ICastSession
     }
 
     // Minimal DIDL-Lite metadata so renderers that require it will accept the stream.
-    private static string BuildDidl(string url) =>
+    private static string BuildDidl(string url, string contentType) =>
         "<DIDL-Lite xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\" " +
         "xmlns:dc=\"http://purl.org/dc/elements/1.1/\" " +
         "xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\">" +
         "<item id=\"0\" parentID=\"-1\" restricted=\"1\">" +
         "<dc:title>CastDriver</dc:title>" +
         "<upnp:class>object.item.audioItem.musicTrack</upnp:class>" +
-        $"<res protocolInfo=\"http-get:*:audio/wav:*\">{Xml(url)}</res>" +
+        $"<res protocolInfo=\"http-get:*:{contentType}:*\">{Xml(url)}</res>" +
         "</item></DIDL-Lite>";
 
     private static string Xml(string s) => System.Security.SecurityElement.Escape(s) ?? s;

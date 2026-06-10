@@ -24,6 +24,10 @@ public sealed class CastManager : IAsyncDisposable
     // The chosen audio source endpoint id (null = default render device).
     public string? SourceDeviceId { get; set; }
 
+    // Streaming codec. WAV = lossless/high bandwidth; MP3 = compressed/wide compatibility.
+    public StreamCodec Codec { get; set; } = StreamCodec.Wav;
+    public int         Mp3Bitrate { get; set; } = 256;
+
     // User-controlled cast stream level, independent of the local PC volume.
     // 0 = silent, 1 = source level. Applied as software gain to the PCM we stream.
     // The capture is (on this setup) pre-volume, so the PC slider does NOT affect it.
@@ -75,7 +79,7 @@ public sealed class CastManager : IAsyncDisposable
         _capture = new AudioCapture(_captureDevice!, _isLoopback);
         var rawFormat = _capture.WaveFormat;
         var pcm16     = PcmConverter.ToPcm16Format(rawFormat);
-        _mediaServer.SetWaveFormat(pcm16);
+        _mediaServer.SetFormat(pcm16, Codec, Mp3Bitrate);
 
         _capture.DataAvailable += (_, e) =>
         {
@@ -168,7 +172,7 @@ public sealed class CastManager : IAsyncDisposable
         _sessions[device.Id] = session;
         try
         {
-            await session.StartAsync(audioUrl, ct);
+            await session.StartAsync(audioUrl, _mediaServer.ContentType, ct);
         }
         catch
         {

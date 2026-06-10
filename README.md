@@ -10,7 +10,9 @@ virtual audio driver required.
 - **Multi-device casting** — stream to several Chromecasts at once, discovered automatically via mDNS.
 - **Per-device volume** — control each Chromecast's own volume instantly via the Cast protocol.
 - **Cast Only mode** — mute the local speakers while the cast keeps playing.
-- **Low-latency live stream** — chunked WAV streaming tuned for a small, stable buffer.
+- **Low-latency live stream** — chunked streaming tuned for a small, stable buffer.
+- **Selectable format** — WAV (lossless) or MP3 (compressed, wide compatibility incl. picky renderers).
+- **Choosable source** — any playback device (loopback) or input (line-in / mic).
 - **System tray app** — pinnable popup UI with a live audio-level meter.
 - **Start with Windows** option.
 - **Debug screen** — toggle logging, view and clear the diagnostics log.
@@ -53,7 +55,7 @@ Supports **Chromecast** (and Google speaker groups) plus **DLNA/UPnP** renderers
 
 ## Building a release
 
-Self-contained single-file build (what you ship):
+**Self-contained** single-file (~73 MB, runs anywhere — no .NET needed). Best for shipping to people who may not have .NET installed:
 
 ```powershell
 dotnet publish CastDriver.UI -c Release -r win-x64 --self-contained true `
@@ -61,8 +63,15 @@ dotnet publish CastDriver.UI -c Release -r win-x64 --self-contained true `
   -p:EnableCompressionInSingleFile=true -p:DebugType=none
 ```
 
-Output: `CastDriver.UI/bin/Release/net10.0-windows/win-x64/publish/CastDriver.UI.exe`
-(rename to `CastDriver.exe` freely before distributing).
+**Framework-dependent** single-file (~4 MB, requires the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download)). Best when you know the target has .NET:
+
+```powershell
+dotnet publish CastDriver.UI -c Release -r win-x64 --self-contained false `
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+  -p:DebugType=none -o publish-framework-dependent
+```
+
+The single `CastDriver.UI.exe` is the whole app (rename to `CastDriver.exe` freely before distributing).
 
 ## Notes
 

@@ -149,6 +149,11 @@
                           ItemsSource="{Binding Sources}"
                           SelectedItem="{Binding SelectedSource, Mode=TwoWay}"
                           DisplayMemberPath="DisplayName"/>
+
+                <TextBlock Text="FORMAT" Style="{StaticResource LabelStyle}" Margin="0,10,0,6"/>
+                <ComboBox Style="{StaticResource DarkComboBox}"
+                          ItemsSource="{Binding CodecOptions}"
+                          SelectedItem="{Binding SelectedCodec, Mode=TwoWay}"/>
             </StackPanel>
 
             <!-- ── Volume section ────────────────────────────────── -->

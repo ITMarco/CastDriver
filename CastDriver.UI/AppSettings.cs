@@ -19,6 +19,10 @@ public sealed class AppSettings
     // Whether the window is pinned open (doesn't auto-hide on focus loss).
     public bool Pinned { get; set; }
 
+    // Stream as MP3 (compressed, wide compatibility) instead of WAV (lossless).
+    public bool UseMp3 { get; set; }
+    public int  Mp3Bitrate { get; set; } = 256;
+
     private static string Dir =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "CastDriver");
 

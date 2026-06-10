@@ -9,6 +9,7 @@
   <ItemGroup>
     <PackageReference Include="Google.Protobuf" Version="3.35.0" />
     <PackageReference Include="Makaretu.Dns.Multicast" Version="0.27.0" />
+    <PackageReference Include="NAudio.Lame" Version="2.1.0" />
   </ItemGroup>
 
   <ItemGroup>

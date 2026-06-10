@@ -9,6 +9,6 @@ public interface ICastSession : IAsyncDisposable
     event EventHandler<string>? ErrorOccurred;
     event EventHandler<float>?  VolumeReported;   // device's own volume, 0–1
 
-    Task StartAsync(string audioUrl, CancellationToken ct = default);
+    Task StartAsync(string audioUrl, string contentType, CancellationToken ct = default);
     Task SetVolumeAsync(float level, CancellationToken ct = default);
 }

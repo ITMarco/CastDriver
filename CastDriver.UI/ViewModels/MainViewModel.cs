@@ -21,6 +21,7 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private ObservableCollection<DeviceViewModel> _devices = [];
     [ObservableProperty] private ObservableCollection<AudioEndpointInfo> _sources = [];
     [ObservableProperty] private AudioEndpointInfo? _selectedSource;
+    [ObservableProperty] private string _selectedCodec = WavOption;
     [ObservableProperty] private double  _volume          = 75;
     [ObservableProperty] private bool    _isMuted;
     [ObservableProperty] private float   _audioLevel;
@@ -40,6 +41,8 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         Log.Enabled                   = _settings.LoggingEnabled;
         _manager.SourceDeviceId       = _settings.SourceDeviceId;
+        _manager.Codec                = _settings.UseMp3 ? StreamCodec.Mp3 : StreamCodec.Wav;
+        _manager.Mp3Bitrate           = _settings.Mp3Bitrate;
         _manager.DeviceDiscovered    += OnDeviceDiscovered;
         _manager.DeviceLost          += OnDeviceLost;
         _manager.SessionError        += (_, msg) => UpdateDiscoveryStatus(msg);
@@ -53,6 +56,7 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         IsDriverInstalled = DriverInstaller.IsInstalled();
 
         LoadSources();
+        SelectedCodec = _settings.UseMp3 ? Mp3Option : WavOption;
         RefreshCaptureDevice(_settings.SourceDeviceId);
 
         _manager.StartDiscovery();
@@ -74,6 +78,32 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         Sources = new ObservableCollection<AudioEndpointInfo>(AudioCapture.ListEndpoints());
         SelectedSource = Sources.FirstOrDefault(s => s.Id == _settings.SourceDeviceId)
                       ?? Sources.FirstOrDefault();
+    }
+
+    // ── Stream format / codec ──────────────────────────────────────────────────
+
+    public const string WavOption = "WAV — lossless, high bandwidth";
+    public const string Mp3Option = "MP3 — compressed, best compatibility";
+    public IReadOnlyList<string> CodecOptions { get; } = [WavOption, Mp3Option];
+
+    partial void OnSelectedCodecChanged(string value)
+    {
+        if (_initializing) return;
+        var useMp3 = value == Mp3Option;
+        _settings.UseMp3 = useMp3;
+        _settings.Save();
+        _ = ApplyCodecAsync(useMp3);
+    }
+
+    // Changing codec changes the stream's content type, so any active casts must be
+    // re-established. Stop them, switch, and let the user re-cast.
+    private async Task ApplyCodecAsync(bool useMp3)
+    {
+        await StopAll();
+        _manager.Codec = useMp3 ? StreamCodec.Mp3 : StreamCodec.Wav;
+        UpdateDiscoveryStatus(useMp3
+            ? "Switched to MP3 — re-cast to apply."
+            : "Switched to WAV — re-cast to apply.");
     }
 
     partial void OnSelectedSourceChanged(AudioEndpointInfo? value)

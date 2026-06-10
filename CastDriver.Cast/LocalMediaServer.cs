@@ -16,7 +16,14 @@ public sealed class LocalMediaServer : IAsyncDisposable
     private readonly TcpListener _listener;
     private readonly ConcurrentDictionary<Guid, Channel<byte[]>> _clients = new();
     private WaveFormat? _waveFormat;
+    private StreamCodec _codec = StreamCodec.Wav;
+    private Mp3StreamEncoder? _mp3;
     private CancellationTokenSource _cts = new();
+
+    // What clients receive. Wav = raw PCM16 (lossless, high bandwidth); Mp3 = compressed
+    // (lower bandwidth, better compatibility with picky renderers like Sonos).
+    public string ContentType => _codec == StreamCodec.Mp3 ? "audio/mpeg" : "audio/wav";
+    private string FileName    => _codec == StreamCodec.Mp3 ? "audio.mp3"  : "audio.wav";
 
     // Silence keep-alive: WasapiLoopbackCapture delivers NO buffers while the system
     // is idle/silent, which would stall the Chromecast (perpetual buffering, no sound).
@@ -41,20 +48,36 @@ public sealed class LocalMediaServer : IAsyncDisposable
         Port = ((IPEndPoint)_listener.LocalEndpoint).Port;
     }
 
-    // Call once before the first PushPcmData to set the format for WAV headers.
-    public void SetWaveFormat(WaveFormat format)
+    // Call before the first PushPcmData to set the PCM format, codec, and (for MP3) bitrate.
+    public void SetFormat(WaveFormat pcm16, StreamCodec codec, int mp3BitrateKbps)
     {
-        _waveFormat = format;
+        _waveFormat = pcm16;
+        _codec      = codec;
+
+        _mp3?.Dispose();
+        _mp3 = codec == StreamCodec.Mp3 ? new Mp3StreamEncoder(pcm16, mp3BitrateKbps) : null;
 
         // Size one silence chunk to SilenceIntervalMs of audio, block-aligned.
-        var bytes = format.AverageBytesPerSecond * SilenceIntervalMs / 1000;
-        bytes -= bytes % Math.Max(1, format.BlockAlign);
-        _silenceChunk  = new byte[Math.Max(format.BlockAlign, bytes)];
+        var bytes = pcm16.AverageBytesPerSecond * SilenceIntervalMs / 1000;
+        bytes -= bytes % Math.Max(1, pcm16.BlockAlign);
+        _silenceChunk  = new byte[Math.Max(pcm16.BlockAlign, bytes)];
         _lastDataTicks = DateTime.UtcNow.Ticks;
 
         _silenceTimer?.Dispose();
         _silenceTimer = new System.Threading.Timer(
             _ => PumpSilence(), null, SilenceIntervalMs, SilenceIntervalMs);
+    }
+
+    // PCM in → bytes to actually stream (raw PCM for WAV, encoded frames for MP3).
+    private byte[] Encode(byte[] pcm) =>
+        _codec == StreamCodec.Mp3 && _mp3 != null ? _mp3.Encode(pcm) : pcm;
+
+    private void Fan(byte[] data)
+    {
+        if (data.Length == 0) return;
+        foreach (var (_, ch) in _clients)
+            if (!ch.Writer.TryWrite(data)) // DropOldest policy handles slow clients
+                Interlocked.Increment(ref _droppedChunks);
     }
 
     // Diagnostics — how much real vs. silence we feed, and how often we drop.
@@ -69,9 +92,7 @@ public sealed class LocalMediaServer : IAsyncDisposable
     {
         Interlocked.Exchange(ref _lastDataTicks, DateTime.UtcNow.Ticks);
         Interlocked.Add(ref _realBytes, pcm.Length);
-        foreach (var (_, ch) in _clients)
-            if (!ch.Writer.TryWrite(pcm)) // DropOldest policy handles slow clients
-                Interlocked.Increment(ref _droppedChunks);
+        Fan(Encode(pcm));
     }
 
     // Fires every SilenceIntervalMs. If real audio hasn't arrived within that window,
@@ -88,8 +109,7 @@ public sealed class LocalMediaServer : IAsyncDisposable
         if (idleMs < SilenceIntervalMs) return; // real audio is flowing — leave it alone
 
         Interlocked.Add(ref _silenceBytes, _silenceChunk.Length);
-        foreach (var (_, ch) in _clients)
-            ch.Writer.TryWrite(_silenceChunk);
+        Fan(Encode(_silenceChunk));
     }
 
     // Every ~2 s, report the real/silence byte rates and drops so we can see whether
@@ -111,7 +131,7 @@ public sealed class LocalMediaServer : IAsyncDisposable
     }
 
     // Returns the URL the Chromecast should request.
-    public string GetStreamUrl(string localIp) => $"http://{localIp}:{Port}/audio.wav";
+    public string GetStreamUrl(string localIp) => $"http://{localIp}:{Port}/{FileName}";
 
     public Task RunAsync() => RunAsync(_cts.Token);
 
@@ -153,15 +173,15 @@ public sealed class LocalMediaServer : IAsyncDisposable
             var headers = BuildHttpHeaders();
             await stream.WriteAsync(headers, ct);
 
-            // Send WAV header — tells the client audio format before any PCM arrives.
-            if (_waveFormat != null)
+            // WAV mode only: send the WAV header + a silence prebuffer so the receiver
+            // starts with a playback cushion. MP3 is self-framing and flows continuously
+            // (the silence pump keeps frames coming), so it needs neither.
+            if (_codec == StreamCodec.Wav && _waveFormat != null)
             {
                 var wavHeader = BuildWavHeader(_waveFormat);
                 await WriteChunkAsync(stream, wavHeader, ct);
                 sent += wavHeader.Length;
 
-                // Prime the receiver with PrebufferMs of silence so it starts with a
-                // real playback cushion instead of riding the edge of underrun.
                 if (_silenceChunk.Length > 0)
                     for (var i = 0; i < PrebufferMs / SilenceIntervalMs; i++)
                     {
@@ -228,13 +248,13 @@ public sealed class LocalMediaServer : IAsyncDisposable
         return nl > 0 ? text[..nl] : text.Trim();
     }
 
-    private static byte[] BuildHttpHeaders()
+    private byte[] BuildHttpHeaders()
     {
         // Chunked transfer, no Content-Length: tells the receiver this is an endless
         // live stream so it uses a small live buffer instead of a large VOD buffer.
         var sb = new StringBuilder();
         sb.Append("HTTP/1.1 200 OK\r\n");
-        sb.Append("Content-Type: audio/wav\r\n");
+        sb.Append($"Content-Type: {ContentType}\r\n");
         sb.Append("Transfer-Encoding: chunked\r\n");
         sb.Append("Cache-Control: no-cache\r\n");
         sb.Append("Connection: keep-alive\r\n");
@@ -293,6 +313,7 @@ public sealed class LocalMediaServer : IAsyncDisposable
     {
         _cts.Cancel();
         _silenceTimer?.Dispose();
+        _mp3?.Dispose();
         _listener.Stop();
 
         foreach (var (_, ch) in _clients)
