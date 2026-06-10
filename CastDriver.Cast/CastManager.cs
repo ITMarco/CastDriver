@@ -125,8 +125,11 @@ public sealed class CastManager : IAsyncDisposable
     {
         if (!_capturing) return;
         _capture?.Dispose();
-        _capture   = null;
-        _capturing = false;
+        _capture       = null;
+        _capturing     = false;
+        // Drop the cached device handle so the next cast resolves a FRESH one. Reusing a
+        // stale MMDevice after a drop fails every subsequent cast with 0x9000FFFF.
+        _captureDevice = null;
         Log.Write("[audio] capture stopped (no active casts)");
     }
 
