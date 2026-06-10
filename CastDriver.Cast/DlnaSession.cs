@@ -128,7 +128,11 @@ public sealed class DlnaSession : ICastSession
         using var resp = await Http.SendAsync(req, ct);
         var text = await resp.Content.ReadAsStringAsync(ct);
         if (!resp.IsSuccessStatusCode)
+        {
+            var detail = text.Length > 300 ? text[..300] : text;
+            Log.Write($"[dlna] {action} HTTP {(int)resp.StatusCode}: {detail}");
             throw new Exception($"{action} → HTTP {(int)resp.StatusCode}");
+        }
         return text;
     }
 

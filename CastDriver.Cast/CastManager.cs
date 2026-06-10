@@ -182,10 +182,11 @@ public sealed class CastManager : IAsyncDisposable
             await StartAudioAsync();
 
         var localIp  = GetLocalIpFor(device.Host);
+        var title    = Sanitize(NowPlayingTitle) is { Length: > 0 } t
+            ? t : $"CastDriver — {Environment.MachineName}";
         var media    = new CastMedia(
             _mediaServer.GetStreamUrl(localIp), _mediaServer.ContentType,
-            NowPlayingTitle is { Length: > 0 } t ? t : $"CastDriver — {Environment.MachineName}",
-            _mediaServer.GetArtUrl(localIp));
+            title, _mediaServer.GetArtUrl(localIp));
         Log.Write($"[cast] {device.Kind} '{device.Name}' local IP {localIp}; stream URL = {media.Url}");
 
         ICastSession session = device switch
@@ -254,6 +255,15 @@ public sealed class CastManager : IAsyncDisposable
     // IP — that's the address it connects to our media server from.
     public void SetDeviceMute(ICastDevice device, bool muted) =>
         _mediaServer.SetMuted(device.Host, muted);
+
+    // Strip control characters (and cap length) so a stray SMTC title can't break the
+    // LOAD JSON or the DLNA DIDL XML.
+    private static string Sanitize(string? s)
+    {
+        if (string.IsNullOrEmpty(s)) return "";
+        var clean = new string(s.Where(c => c >= ' ').ToArray()).Trim();
+        return clean.Length > 100 ? clean[..100] : clean;
+    }
 
     // Stop casting to a specific device.
     public async Task StopCastingAsync(ICastDevice device)
