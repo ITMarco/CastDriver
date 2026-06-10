@@ -71,6 +71,9 @@ public partial class MainWindow : Window
 
     public void ShowAtTrayCorner()
     {
+        // Refresh the source/app list each time the window opens so newly-playing apps appear.
+        (DataContext as MainViewModel)?.RefreshSources();
+
         // A pinned window keeps its current position; only reposition when auto-hiding.
         if (!IsPinned)
         {

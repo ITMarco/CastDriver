@@ -21,6 +21,10 @@ public partial class App : Application
         _window = new MainWindow(_vm);
 
         BuildTrayIcon();
+
+        // Show the window on launch rather than starting hidden in the tray.
+        // (A "start minimized" preference will join the planned "auto-stream on start".)
+        _window.ShowAtTrayCorner();
     }
 
     private void BuildTrayIcon()

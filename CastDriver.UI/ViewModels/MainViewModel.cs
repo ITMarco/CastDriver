@@ -61,7 +61,9 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         LoadSources();
         SelectedCodec = _settings.UseMp3 ? Mp3Option : WavOption;
-        RefreshCaptureDevice(_settings.SourceDeviceId);
+        _settings.SourceDeviceId = SelectedSource?.Id;   // baseline for change-detection
+        _manager.SourceDeviceId  = SelectedSource?.Id;   // keep manager in sync
+        RefreshCaptureDevice(SelectedSource?.Id);
 
         _manager.StartDiscovery();
         _levelTimer.Start();
@@ -84,6 +86,16 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         Sources = new ObservableCollection<AudioEndpointInfo>(AudioCapture.ListEndpoints());
         SelectedSource = Sources.FirstOrDefault(s => s.Id == _settings.SourceDeviceId)
                       ?? Sources.FirstOrDefault();
+    }
+
+    // Re-enumerate sources (e.g. apps that began playing after launch), preserving the
+    // current selection. Called when the window is opened. The change-detection guard in
+    // OnSelectedSourceChanged keeps re-selecting the same source from restarting capture.
+    public void RefreshSources()
+    {
+        var currentId = SelectedSource?.Id;
+        Sources = new ObservableCollection<AudioEndpointInfo>(AudioCapture.ListEndpoints());
+        SelectedSource = Sources.FirstOrDefault(s => s.Id == currentId) ?? Sources.FirstOrDefault();
     }
 
     // ── Stream format / codec ──────────────────────────────────────────────────
@@ -142,6 +154,7 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
     partial void OnSelectedSourceChanged(AudioEndpointInfo? value)
     {
         if (value == null || _initializing) return;
+        if (value.Id == _settings.SourceDeviceId) return; // no real change (e.g. a refresh)
 
         _settings.SourceDeviceId = value.Id;
         _settings.Save();
@@ -154,7 +167,7 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         try
         {
             (_captureDevice, _) = AudioCapture.Resolve(id);
-            CaptureDeviceName   = _captureDevice.FriendlyName;
+            CaptureDeviceName   = SelectedSource?.Name ?? _captureDevice.FriendlyName;
             Volume              = Math.Round(_captureDevice.AudioEndpointVolume.MasterVolumeLevelScalar * 100.0);
             IsMuted             = _captureDevice.AudioEndpointVolume.Mute;
 

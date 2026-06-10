@@ -15,7 +15,7 @@ public sealed class CastManager : IAsyncDisposable
     private readonly LocalMediaServer          _mediaServer = new();
     private readonly ConcurrentDictionary<string, ICastSession> _sessions = new();
     private readonly ConcurrentDictionary<string, ICastDevice>  _knownDevices = new();
-    private AudioCapture? _capture;
+    private ICaptureSource? _capture;
     private bool          _capturing;
     private bool          _mediaServerStarted;
     private MMDevice?     _captureDevice;
@@ -76,7 +76,16 @@ public sealed class CastManager : IAsyncDisposable
 
         EnsureCaptureDevice();
 
-        _capture = new AudioCapture(_captureDevice!, _isLoopback);
+        if (AudioCapture.IsAppId(SourceDeviceId, out var pid))
+        {
+            Log.Write($"[audio] process-loopback capture for pid {pid}");
+            _capture = new ProcessLoopbackCapture(pid);
+        }
+        else
+        {
+            _capture = new AudioCapture(_captureDevice!, _isLoopback);
+        }
+
         var rawFormat = _capture.WaveFormat;
         var pcm16     = PcmConverter.ToPcm16Format(rawFormat);
         _mediaServer.SetFormat(pcm16, Codec, Mp3Bitrate);
