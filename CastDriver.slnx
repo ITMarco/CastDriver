@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="CastDriver.Audio/CastDriver.Audio.csproj" />
+  <Project Path="CastDriver.Cast/CastDriver.Cast.csproj" />
+  <Project Path="CastDriver.Driver/CastDriver.Driver.csproj" />
+  <Project Path="CastDriver.UI/CastDriver.UI.csproj" />
+</Solution>
