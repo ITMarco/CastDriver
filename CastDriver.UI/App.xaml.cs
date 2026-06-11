@@ -1,3 +1,5 @@
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows;
@@ -58,9 +60,27 @@ public partial class App : Application
         menu.Items.Add("Exit", null, (_, _) => ExitApp());
         _trayIcon.ContextMenuStrip = menu;
 
-        // Update tray icon colour when casting state changes.
+        // Update the tray icon colour both when the device list changes AND when any
+        // device's casting state flips (so casting from the tray recolours it instantly).
         if (_vm != null)
-            _vm.Devices.CollectionChanged += (_, _) => UpdateTrayIcon();
+        {
+            _vm.Devices.CollectionChanged += OnDevicesChanged;
+            foreach (var d in _vm.Devices) d.PropertyChanged += OnDevicePropertyChanged;
+        }
+    }
+
+    private void OnDevicesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.OldItems != null)
+            foreach (DeviceViewModel d in e.OldItems) d.PropertyChanged -= OnDevicePropertyChanged;
+        if (e.NewItems != null)
+            foreach (DeviceViewModel d in e.NewItems) d.PropertyChanged += OnDevicePropertyChanged;
+        UpdateTrayIcon();
+    }
+
+    private void OnDevicePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(DeviceViewModel.IsCasting)) UpdateTrayIcon();
     }
 
     private void ToggleWindow()
