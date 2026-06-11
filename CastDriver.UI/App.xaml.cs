@@ -123,10 +123,11 @@ public partial class App : Application
         }
     }
 
-    // Gracefully tear down (send STOP/disconnect to each device) before shutting down,
-    // so receivers get a clean stop instead of a dropped connection.
+    // Vanish immediately (hide window + tray icon) so exit feels instant, THEN gracefully
+    // tear down in the background — sending each device a clean STOP/disconnect — and quit.
     public async void ExitApp()
     {
+        _window?.Hide();
         _trayIcon?.Dispose();
         try { if (_vm != null) await _vm.DisposeAsync(); } catch { /* shutting down anyway */ }
         Shutdown();
