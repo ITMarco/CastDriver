@@ -205,6 +205,12 @@
                           FontSize="12" Margin="2,8,0,0"
                           Visibility="{Binding IsAppSelected, Converter={StaticResource BoolVis}}"/>
 
+                <!-- Mute the cast app on this PC -->
+                <CheckBox Content="Mute this app on this PC while casting"
+                          IsChecked="{Binding MuteAppLocally, Mode=TwoWay}"
+                          FontSize="12" Margin="2,8,0,0"
+                          Visibility="{Binding CanMuteApp, Converter={StaticResource BoolVis}}"/>
+
                 <TextBlock Text="FORMAT" Style="{StaticResource LabelStyle}" Margin="0,10,0,6"/>
                 <ComboBox Style="{StaticResource DarkComboBox}"
                           ItemsSource="{Binding CodecOptions}"
