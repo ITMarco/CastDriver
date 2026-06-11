@@ -163,6 +163,22 @@
                 </Grid>
             </Border>
 
+            <!-- Firewall warning banner -->
+            <Border Background="#33FF453A"
+                    BorderBrush="#22FF453A" BorderThickness="0 1 0 1"
+                    Padding="16,10"
+                    Visibility="{Binding FirewallWarning, Converter={StaticResource BoolVis}}">
+                <StackPanel>
+                    <TextBlock Text="The device couldn't reach this PC — Windows Firewall is likely blocking it."
+                               Foreground="White" FontSize="12" TextWrapping="Wrap"/>
+                    <Button Content="Allow through firewall"
+                            Command="{Binding FixFirewallCommand}"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            FontSize="12" Padding="10,4"
+                            HorizontalAlignment="Left" Margin="0,8,0,0"/>
+                </StackPanel>
+            </Border>
+
             <!-- ── Source section ────────────────────────────────── -->
             <StackPanel Margin="16,12,16,0">
                 <TextBlock Text="SOURCE" Style="{StaticResource LabelStyle}" Margin="0,0,0,6"/>

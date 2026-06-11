@@ -46,7 +46,15 @@ public partial class App : Application
         // Right-click context menu.
         var menu = new ContextMenuStrip();
         menu.Items.Add("Show / Hide", null, (_, _) => ToggleWindow());
-        menu.Items.Add("-");
+        menu.Items.Add(new ToolStripSeparator());
+
+        var castTo = new ToolStripMenuItem("Cast to");
+        castTo.DropDownOpening += (_, _) => PopulateCastMenu(castTo);
+        castTo.DropDownItems.Add(new ToolStripMenuItem("(loading…)") { Enabled = false });
+        menu.Items.Add(castTo);
+        menu.Items.Add("Stop all casting", null, (_, _) => _vm?.StopAllCommand.Execute(null));
+
+        menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) => ExitApp());
         _trayIcon.ContextMenuStrip = menu;
 
@@ -75,10 +83,32 @@ public partial class App : Application
         }
     }
 
-    public void ExitApp()
+    // Rebuilds the "Cast to" submenu from the current device list each time it opens.
+    private void PopulateCastMenu(ToolStripMenuItem parent)
+    {
+        parent.DropDownItems.Clear();
+        var devices = _vm?.Devices;
+        if (devices == null || devices.Count == 0)
+        {
+            parent.DropDownItems.Add(new ToolStripMenuItem("No devices found") { Enabled = false });
+            return;
+        }
+
+        foreach (var d in devices)
+        {
+            var device = d;
+            var item = new ToolStripMenuItem(d.Name) { Checked = d.IsCasting, CheckOnClick = false };
+            item.Click += (_, _) => _vm?.ToggleDeviceCommand.Execute(device);
+            parent.DropDownItems.Add(item);
+        }
+    }
+
+    // Gracefully tear down (send STOP/disconnect to each device) before shutting down,
+    // so receivers get a clean stop instead of a dropped connection.
+    public async void ExitApp()
     {
         _trayIcon?.Dispose();
-        _vm?.DisposeAsync();
+        try { if (_vm != null) await _vm.DisposeAsync(); } catch { /* shutting down anyway */ }
         Shutdown();
     }
 

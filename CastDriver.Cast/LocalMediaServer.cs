@@ -59,6 +59,7 @@ public sealed class LocalMediaServer : IAsyncDisposable
     private long                     _lastDataTicks;
 
     public int Port { get; }
+    public int ClientCount => _clients.Count;
 
     public LocalMediaServer()
     {

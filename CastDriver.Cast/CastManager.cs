@@ -28,9 +28,6 @@ public sealed class CastManager : IAsyncDisposable
     public StreamCodec Codec { get; set; } = StreamCodec.Wav;
     public int         Mp3Bitrate { get; set; } = 256;
 
-    // "Now casting" title shown on receivers (e.g. the app name). Falls back to the PC name.
-    public string? NowPlayingTitle { get; set; }
-
     // When an app source is selected: false = cast only that app; true = cast everything
     // except that app (e.g. mute notifications / a meeting from the cast).
     public bool ExcludeApp { get; set; }
@@ -45,6 +42,10 @@ public sealed class CastManager : IAsyncDisposable
     // Device ids the user wants casting — drives auto-reconnect on unexpected drops.
     private readonly HashSet<string> _desired = [];
     public event EventHandler<ICastDevice>? CastEnded; // raised when a cast stops for good
+
+    // Raised when a cast started but no device connected back to our media server — almost
+    // always Windows Firewall blocking inbound. The UI offers a one-click fix.
+    public event EventHandler? ReceiverUnreachable;
 
     // User-controlled cast stream level, independent of the local PC volume.
     // 0 = silent, 1 = source level. Applied as software gain to the PCM we stream.
@@ -182,8 +183,7 @@ public sealed class CastManager : IAsyncDisposable
             await StartAudioAsync();
 
         var localIp  = GetLocalIpFor(device.Host);
-        var title    = Sanitize(NowPlayingTitle) is { Length: > 0 } t
-            ? t : $"CastDriver — {Environment.MachineName}";
+        var title    = $"CastDriver — {Environment.MachineName} ({localIp})";
         var media    = new CastMedia(
             _mediaServer.GetStreamUrl(localIp), _mediaServer.ContentType,
             title, _mediaServer.GetArtUrl(localIp));
@@ -209,6 +209,7 @@ public sealed class CastManager : IAsyncDisposable
         try
         {
             await session.StartAsync(media, ct);
+            _ = CheckReachableAsync();
         }
         catch
         {
@@ -256,13 +257,16 @@ public sealed class CastManager : IAsyncDisposable
     public void SetDeviceMute(ICastDevice device, bool muted) =>
         _mediaServer.SetMuted(device.Host, muted);
 
-    // Strip control characters (and cap length) so a stray SMTC title can't break the
-    // LOAD JSON or the DLNA DIDL XML.
-    private static string Sanitize(string? s)
+    // A few seconds after a cast starts, if no device has connected back to our media
+    // server, the inbound connection is almost certainly firewall-blocked. Tell the UI.
+    private async Task CheckReachableAsync()
     {
-        if (string.IsNullOrEmpty(s)) return "";
-        var clean = new string(s.Where(c => c >= ' ').ToArray()).Trim();
-        return clean.Length > 100 ? clean[..100] : clean;
+        await Task.Delay(6000);
+        if (!_sessions.IsEmpty && _mediaServer.ClientCount == 0)
+        {
+            Log.Write("[net] no device connected to the media server — likely firewall-blocked");
+            ReceiverUnreachable?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     // Stop casting to a specific device.
@@ -288,12 +292,15 @@ public sealed class CastManager : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        _desired.Clear(); // we're shutting down — don't let teardown trigger auto-reconnect
         _discovery.Dispose();
         _dlna.Dispose();
         _capture?.Dispose();
 
+        // DisposeAsync on each session sends a clean STOP/disconnect to the device.
         foreach (var (_, session) in _sessions)
             await session.DisposeAsync();
+        _sessions.Clear();
 
         await _mediaServer.DisposeAsync();
     }

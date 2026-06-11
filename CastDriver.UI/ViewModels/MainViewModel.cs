@@ -35,6 +35,7 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private bool    _isCastOnlyMode;
     [ObservableProperty] private bool    _updateAvailable;
     [ObservableProperty] private string  _updateText = "";
+    [ObservableProperty] private bool    _firewallWarning;
     [ObservableProperty] private double  _latencyMs = 1500;
     [ObservableProperty] private bool    _excludeApp;
     [ObservableProperty] private int     _selectedBitrate = 256;
@@ -77,6 +78,8 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         _manager.SessionError        += (_, msg) => UpdateDiscoveryStatus(msg);
         _manager.DeviceVolumeReported += OnDeviceVolumeReported;
         _manager.CastEnded           += OnCastEnded;
+        _manager.ReceiverUnreachable += (_, _) =>
+            WpfApp.Current.Dispatcher.Invoke(() => FirewallWarning = true);
 
         _ = InitializeAsync();
     }
@@ -89,7 +92,6 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         SelectedCodec = _settings.UseMp3 ? Mp3Option : WavOption;
         _settings.SourceDeviceId = SelectedSource?.Id;   // baseline for change-detection
         _manager.SourceDeviceId  = SelectedSource?.Id;   // keep manager in sync
-        _manager.NowPlayingTitle = TitleFor(SelectedSource);
         RefreshCaptureDevice(SelectedSource?.Id);
 
         _manager.StartDiscovery();
@@ -194,7 +196,6 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
 
         _settings.SourceDeviceId = value.Id;
         _settings.Save();
-        _manager.NowPlayingTitle = TitleFor(value);
         _ = RestartCastsAsync(async () =>
         {
             await _manager.SetSourceDeviceAsync(value.Id);
@@ -222,9 +223,12 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         _ = RestartCastsAsync(() => { _manager.Mp3Bitrate = value; return Task.CompletedTask; });
     }
 
-    // "Now casting" title: the app name for an app source, else null (manager → PC name).
-    private static string? TitleFor(AudioEndpointInfo? source) =>
-        source is { Kind: SourceKind.App } ? source.Name : null;
+    [RelayCommand]
+    private void FixFirewall()
+    {
+        FirewallHelper.AddRuleElevated();
+        FirewallWarning = false;
+    }
 
     // ── Latency / buffer ───────────────────────────────────────────────────────
 
@@ -359,11 +363,11 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     private async Task CastDeviceAsync(DeviceViewModel vm)
     {
-        vm.IsConnecting = true;
-        vm.HasError     = false;
+        vm.IsConnecting  = true;
+        vm.HasError      = false;
+        FirewallWarning  = false; // re-evaluated by the reachability check
         try
         {
-            _manager.NowPlayingTitle = TitleFor(SelectedSource);
             await _manager.CastToDeviceAsync(vm.Device);
             vm.IsCasting = true;
         }
