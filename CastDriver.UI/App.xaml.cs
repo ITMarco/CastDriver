@@ -31,17 +31,31 @@ public partial class App : Application
             _window.ShowAtTrayCorner();
     }
 
-    // NAudio.Lame loads libmp3lame.*.dll by plain name. In a single-file build the DLL is
-    // extracted next to the host, but to be safe we pre-load it by full path so MP3 always
-    // resolves regardless of the DLL search order.
+    // NAudio.Lame loads libmp3lame.*.dll by plain name, but it only ships them as content
+    // (not native runtime libs) so they don't make it into the single-file bundle. We embed
+    // them in this assembly, extract the right one, and load it — then NAudio.Lame's
+    // DllImport resolves to the already-loaded module.
     private static void PreloadLame()
     {
         try
         {
             var name = Environment.Is64BitProcess ? "libmp3lame.64.dll" : "libmp3lame.32.dll";
-            var path = System.IO.Path.Combine(AppContext.BaseDirectory, name);
-            if (System.IO.File.Exists(path))
-                System.Runtime.InteropServices.NativeLibrary.Load(path);
+            var asm  = typeof(App).Assembly;
+            var res  = Array.Find(asm.GetManifestResourceNames(),
+                                   n => n.EndsWith(name, StringComparison.OrdinalIgnoreCase));
+            if (res == null) return;
+
+            var dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "CastDriver", "lame", AppInfo.Short);
+            System.IO.Directory.CreateDirectory(dir);
+            var dll = System.IO.Path.Combine(dir, name);
+
+            if (!System.IO.File.Exists(dll))
+            {
+                using var s  = asm.GetManifestResourceStream(res)!;
+                using var fs = System.IO.File.Create(dll);
+                s.CopyTo(fs);
+            }
+            System.Runtime.InteropServices.NativeLibrary.Load(dll);
         }
         catch { /* MP3 will surface its own error if the DLL is genuinely unavailable */ }
     }

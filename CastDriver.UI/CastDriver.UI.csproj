@@ -24,4 +24,12 @@
   <ItemGroup>
     <Resource Include="icon.ico" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- Embed the LAME native DLLs so MP3 works in the single-file build. NAudio.Lame only
+         ships them as content (not native runtime libs), so they don't get bundled; we
+         extract+load them at startup instead (App.PreloadLame). -->
+    <EmbeddedResource Include="lame\libmp3lame.64.dll" />
+    <EmbeddedResource Include="lame\libmp3lame.32.dll" />
+  </ItemGroup>
 </Project>
