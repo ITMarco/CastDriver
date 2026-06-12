@@ -19,12 +19,11 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>icon.ico</ApplicationIcon>
-    <Version>1.9.0</Version>
+    <Version>1.10.0</Version>
   </PropertyGroup>
   <ItemGroup>
     <Resource Include="icon.ico" />
   </ItemGroup>
-
   <ItemGroup>
     <!-- Embed the LAME native DLLs so MP3 works in the single-file build. NAudio.Lame only
          ships them as content (not native runtime libs), so they don't get bundled; we
