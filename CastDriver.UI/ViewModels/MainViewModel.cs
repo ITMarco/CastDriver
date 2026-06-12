@@ -38,7 +38,6 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private bool    _firewallWarning;
     [ObservableProperty] private double  _latencyMs = 1500;
     [ObservableProperty] private bool    _excludeApp;
-    [ObservableProperty] private bool    _muteAppLocally;
     [ObservableProperty] private int     _selectedBitrate = 256;
     private string _updateUrl = "";
 
@@ -53,8 +52,6 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     // An app source is selected → show the "exclude this app" option.
     public bool IsAppSelected => SelectedSource?.Kind == SourceKind.App;
-    // We're actually casting that app (not excluding it) → offer to mute it locally.
-    public bool CanMuteApp => IsAppSelected && !ExcludeApp;
     // MP3 codec selected → show the bitrate selector.
     public bool IsMp3 => SelectedCodec == Mp3Option;
 
@@ -69,10 +66,8 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         _manager.Mp3Bitrate           = _settings.Mp3Bitrate;
         _manager.PrebufferMs          = _settings.PrebufferMs;
         _manager.ExcludeApp           = _settings.ExcludeApp;
-        _manager.MuteAppLocally       = _settings.MuteAppLocally;
         _latencyMs                    = _settings.PrebufferMs;
         _excludeApp                   = _settings.ExcludeApp;
-        _muteAppLocally               = _settings.MuteAppLocally;
         _selectedBitrate              = _settings.Mp3Bitrate;
 
         // Group the source dropdown: Devices, then Applications.
@@ -196,7 +191,6 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
     partial void OnSelectedSourceChanged(AudioEndpointInfo? value)
     {
         OnPropertyChanged(nameof(IsAppSelected));
-        OnPropertyChanged(nameof(CanMuteApp));
         if (value == null || _initializing) return;
         if (value.Id == _settings.SourceDeviceId) return; // no real change (e.g. a refresh)
 
@@ -213,21 +207,12 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
 
     partial void OnExcludeAppChanged(bool value)
     {
-        OnPropertyChanged(nameof(CanMuteApp));
         if (_initializing) return;
         _settings.ExcludeApp = value;
         _settings.Save();
         _manager.ExcludeApp = value;
         if (SelectedSource is { Kind: SourceKind.App } app)
             _ = RestartCastsAsync(() => _manager.SetSourceDeviceAsync(app.Id));
-    }
-
-    partial void OnMuteAppLocallyChanged(bool value)
-    {
-        if (_initializing) return;
-        _settings.MuteAppLocally = value;
-        _settings.Save();
-        _manager.SetAppLocalMute(value);
     }
 
     partial void OnSelectedBitrateChanged(int value)

@@ -35,9 +35,6 @@ public sealed class AppSettings
     // For an app source: cast everything EXCEPT the chosen app (instead of only it).
     public bool ExcludeApp { get; set; }
 
-    // For an app source: also mute that app locally (volume mixer) while casting.
-    public bool MuteAppLocally { get; set; }
-
     private static string Dir =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "CastDriver");
 

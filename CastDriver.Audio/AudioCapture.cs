@@ -127,35 +127,6 @@ public sealed class AudioCapture : ICaptureSource
         return byProcessName.Values.OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
-    // Mute/unmute an app's audio in the Windows volume mixer (its session(s) on the
-    // default render device) — so it plays on the cast but not the local speakers. We mute
-    // every session whose process shares the target's name, to cover multi-process apps.
-    public static void SetAppMuted(uint pid, bool muted)
-    {
-        try
-        {
-            using var enumerator = new MMDeviceEnumerator();
-            var dev        = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-            var targetName = ProcessNameOf(pid);
-            var sessions   = dev.AudioSessionManager.Sessions;
-            for (var i = 0; i < sessions.Count; i++)
-            {
-                var s    = sessions[i];
-                var spid = s.GetProcessID;
-                if (spid == 0) continue;
-                if (spid == pid || (targetName != null && ProcessNameOf(spid) == targetName))
-                    try { s.SimpleAudioVolume.Mute = muted; } catch { }
-            }
-        }
-        catch { /* session API unavailable */ }
-    }
-
-    private static string? ProcessNameOf(uint pid)
-    {
-        try { using var p = Process.GetProcessById((int)pid); return p.ProcessName; }
-        catch { return null; }
-    }
-
     // Among all processes with this name, prefer the one that owns a visible main window
     // (the app's root process); fall back to the audio-session process itself.
     private static (uint Pid, string? Title) MainProcessOf(string processName, uint fallbackPid)

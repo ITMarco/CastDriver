@@ -32,11 +32,6 @@ public sealed class CastManager : IAsyncDisposable
     // except that app (e.g. mute notifications / a meeting from the cast).
     public bool ExcludeApp { get; set; }
 
-    // When casting an app source: also mute that app on the local PC (volume mixer), so it
-    // only plays on the cast. Tracked so we can un-mute it again when casting stops.
-    public bool MuteAppLocally { get; set; }
-    private uint? _mutedAppPid;
-
     // Prebuffer / latency cushion in ms (forwarded to the media server).
     public int PrebufferMs
     {
@@ -104,11 +99,6 @@ public sealed class CastManager : IAsyncDisposable
         {
             Log.Write($"[audio] process-loopback capture for pid {pid} (exclude={ExcludeApp})");
             _capture = new ProcessLoopbackCapture(pid, ExcludeApp);
-            if (MuteAppLocally && !ExcludeApp)
-            {
-                AudioCapture.SetAppMuted(pid, true);
-                _mutedAppPid = pid;
-            }
         }
         else
         {
@@ -145,19 +135,7 @@ public sealed class CastManager : IAsyncDisposable
         // Drop the cached device handle so the next cast resolves a FRESH one. Reusing a
         // stale MMDevice after a drop fails every subsequent cast with 0x9000FFFF.
         _captureDevice = null;
-        // Un-mute the app we muted locally for the cast.
-        if (_mutedAppPid is uint mp) { AudioCapture.SetAppMuted(mp, false); _mutedAppPid = null; }
         Log.Write("[audio] capture stopped (no active casts)");
-    }
-
-    // Toggle "mute the cast app on this PC" live while casting.
-    public void SetAppLocalMute(bool on)
-    {
-        MuteAppLocally = on;
-        if (!_capturing || ExcludeApp || !AudioCapture.IsAppId(SourceDeviceId, out var pid)) return;
-
-        if (on) { AudioCapture.SetAppMuted(pid, true); _mutedAppPid = pid; }
-        else if (_mutedAppPid is uint mp) { AudioCapture.SetAppMuted(mp, false); _mutedAppPid = null; }
     }
 
     private void EnsureCaptureDevice()
