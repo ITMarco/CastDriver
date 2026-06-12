@@ -1,20 +1,12 @@
 <Window x:Class="CastDriver.UI.AboutWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="About CastDriver"
+        Title="Preferences"
         Icon="icon.ico"
         Width="420" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
-        Background="#1C1C1E">
-
-    <Window.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="Themes/Dark.xaml"/>
-            </ResourceDictionary.MergedDictionaries>
-        </ResourceDictionary>
-    </Window.Resources>
+        Background="{StaticResource BgBrush}">
 
     <StackPanel Margin="24">
         <TextBlock Text="CastDriver"
@@ -69,6 +61,18 @@
                 BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
                 CornerRadius="8" Padding="12">
             <StackPanel>
+                <Grid Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Theme" Style="{StaticResource BodyStyle}" FontSize="13"
+                               VerticalAlignment="Center"/>
+                    <ComboBox x:Name="ThemeCombo" Grid.Column="1" Width="130"
+                              Style="{StaticResource DarkComboBox}"
+                              SelectionChanged="OnThemeChanged"/>
+                </Grid>
+
                 <CheckBox x:Name="StartupCheck" Content="Start with Windows"
                           Click="OnToggleStartup" FontSize="12"/>
                 <CheckBox x:Name="MinimizedCheck" Content="Start minimized to the tray"

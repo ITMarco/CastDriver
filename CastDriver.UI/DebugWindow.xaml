@@ -5,15 +5,7 @@
         Icon="icon.ico"
         Width="640" Height="520"
         WindowStartupLocation="CenterScreen"
-        Background="#1C1C1E">
-
-    <Window.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="Themes/Dark.xaml"/>
-            </ResourceDictionary.MergedDictionaries>
-        </ResourceDictionary>
-    </Window.Resources>
+        Background="{StaticResource BgBrush}">
 
     <Grid Margin="16">
         <Grid.RowDefinitions>

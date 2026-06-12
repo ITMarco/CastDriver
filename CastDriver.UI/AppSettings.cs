@@ -36,6 +36,9 @@ public sealed class AppSettings
     // When true, the app launches hidden in the tray instead of showing its window.
     public bool StartMinimized { get; set; }
 
+    // UI theme: "Dark" (default) or "Light".
+    public string Theme { get; set; } = "Dark";
+
     // Stream prebuffer in ms — the latency/stability cushion (lower = less lag).
     public int PrebufferMs { get; set; } = 1500;
 

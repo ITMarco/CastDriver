@@ -9,6 +9,8 @@ public partial class AboutWindow : Window
 {
     private string _updateUrl = "";
 
+    private bool _ready;
+
     public AboutWindow()
     {
         InitializeComponent();
@@ -16,6 +18,18 @@ public partial class AboutWindow : Window
         StartupCheck.IsChecked   = StartupRegistration.Enabled;
         MinimizedCheck.IsChecked = AppSettings.Current.StartMinimized;
         DisableCheck.IsChecked   = AppSettings.Current.DisableUpdateCheck;
+
+        ThemeCombo.ItemsSource = new[] { "Dark", "Light" };
+        ThemeCombo.SelectedItem = ThemeManager.Current.ToString();
+        _ready = true;
+    }
+
+    private void OnThemeChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (!_ready || ThemeCombo.SelectedItem is not string name) return;
+        ThemeManager.Apply(ThemeManager.Parse(name));
+        AppSettings.Current.Theme = name;
+        AppSettings.Current.Save();
     }
 
     private void OnToggleStartup(object sender, RoutedEventArgs e) =>

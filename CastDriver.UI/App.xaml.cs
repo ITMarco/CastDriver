@@ -19,6 +19,7 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        ThemeManager.Apply(ThemeManager.Parse(AppSettings.Current.Theme));
         PreloadLame();
 
         _vm     = new MainViewModel();

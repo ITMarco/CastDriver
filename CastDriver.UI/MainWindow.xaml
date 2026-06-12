@@ -15,10 +15,6 @@
 
     <Window.Resources>
         <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="Themes/Dark.xaml"/>
-            </ResourceDictionary.MergedDictionaries>
-
             <!-- Bool → Visibility -->
             <BooleanToVisibilityConverter x:Key="BoolVis"/>
 
@@ -132,7 +128,7 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="Scream audio driver not installed."
-                               Foreground="White" FontSize="12"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"
                                VerticalAlignment="Center" TextWrapping="Wrap"/>
                     <Button Grid.Column="1"
                             Content="Install"
@@ -153,7 +149,7 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="{Binding UpdateText}"
-                               Foreground="White" FontSize="12"
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"
                                VerticalAlignment="Center" TextWrapping="Wrap"/>
                     <Button Grid.Column="1"
                             Content="Download"
@@ -170,7 +166,7 @@
                     Visibility="{Binding FirewallWarning, Converter={StaticResource BoolVis}}">
                 <StackPanel>
                     <TextBlock Text="The device couldn't reach this PC — Windows Firewall is likely blocking it."
-                               Foreground="White" FontSize="12" TextWrapping="Wrap"/>
+                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12" TextWrapping="Wrap"/>
                     <Button Content="Allow through firewall"
                             Command="{Binding FixFirewallCommand}"
                             Style="{StaticResource PrimaryButtonStyle}"
@@ -624,7 +620,7 @@
                                 Command="{Binding StopAllCommand}"
                                 Style="{StaticResource GhostButtonStyle}"
                                 Padding="12,6" FontSize="12"/>
-                        <Button Content="About"
+                        <Button Content="Preferences"
                                 Click="OnOpenAbout"
                                 Style="{StaticResource GhostButtonStyle}"
                                 Padding="12,6" FontSize="12" Margin="8,0,0,0"/>
