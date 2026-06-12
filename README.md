@@ -1,6 +1,9 @@
 # CastDriver
 
-**Cast all your Windows PC audio to Chromecast, Google speaker groups, and DLNA devices (smart TVs, AV receivers, networked speakers) — with a per-device mixer, a graphic equalizer, and no virtual audio driver required.**
+
+**If you're an oldskool guy like me, listening to mp3/flac files using Mediamonkey, Winamp. VLC or orther local program that doesn't support casting, this might be for you. Because sometimes you just want to hear that music on the home stereo and not through your $50 Target speakers**
+
+**So cast all your Windows PC audio to Chromecast, Google speaker groups, and DLNA devices (smart TVs, AV receivers, networked speakers) — with a per-device mixer, a graphic equalizer, and no virtual audio driver required.**
 
 CastDriver captures whatever's playing on your PC (or a single app, or a line-in) and streams it live to one or more devices on your network, from a tidy system-tray app.
 
