@@ -48,6 +48,9 @@ Remove-Item $dist -Recurse -Force -ErrorAction SilentlyContinue
 $common = @(
     "CastDriver.UI", "-c", "Release", "-r", "win-x64",
     "-p:PublishSingleFile=true", "-p:IncludeNativeLibrariesForSelfExtract=true",
+    # NAudio.Lame ships libmp3lame.*.dll as content (not native runtime libs), so we must
+    # bundle ALL content into the single file or MP3 fails with "LAME DLL not found".
+    "-p:IncludeAllContentForSelfExtract=true",
     "-p:DebugType=none"
 )
 

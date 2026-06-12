@@ -81,11 +81,13 @@ To build the exes manually:
 # Self-contained (~73 MB, no .NET needed)
 dotnet publish CastDriver.UI -c Release -r win-x64 --self-contained true `
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+  -p:IncludeAllContentForSelfExtract=true `
   -p:EnableCompressionInSingleFile=true -p:DebugType=none
 
 # Framework-dependent (~4 MB, needs the .NET 10 Desktop Runtime)
 dotnet publish CastDriver.UI -c Release -r win-x64 --self-contained false `
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+  -p:IncludeAllContentForSelfExtract=true `
   -p:DebugType=none -o publish-framework-dependent
 ```
 

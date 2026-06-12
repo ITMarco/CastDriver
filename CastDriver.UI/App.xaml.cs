@@ -19,6 +19,8 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        PreloadLame();
+
         _vm     = new MainViewModel();
         _window = new MainWindow(_vm);
 
@@ -27,6 +29,21 @@ public partial class App : Application
         // Show the window on launch unless the user opted to start minimized in the tray.
         if (!AppSettings.Current.StartMinimized)
             _window.ShowAtTrayCorner();
+    }
+
+    // NAudio.Lame loads libmp3lame.*.dll by plain name. In a single-file build the DLL is
+    // extracted next to the host, but to be safe we pre-load it by full path so MP3 always
+    // resolves regardless of the DLL search order.
+    private static void PreloadLame()
+    {
+        try
+        {
+            var name = Environment.Is64BitProcess ? "libmp3lame.64.dll" : "libmp3lame.32.dll";
+            var path = System.IO.Path.Combine(AppContext.BaseDirectory, name);
+            if (System.IO.File.Exists(path))
+                System.Runtime.InteropServices.NativeLibrary.Load(path);
+        }
+        catch { /* MP3 will surface its own error if the DLL is genuinely unavailable */ }
     }
 
     private void BuildTrayIcon()
