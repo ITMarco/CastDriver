@@ -45,6 +45,7 @@ public sealed class AppSettings
     // Equalizer: enabled flag, per-band gains (dB), and user-saved presets.
     public bool               EqEnabled { get; set; }
     public double[]?          EqGains   { get; set; }
+    public double             EqPreamp  { get; set; }
     public List<EqPresetData> EqPresets { get; set; } = [];
 
     private static string Dir =>

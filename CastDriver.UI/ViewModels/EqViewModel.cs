@@ -43,6 +43,9 @@ public partial class EqViewModel : ObservableObject
 
     [ObservableProperty] private bool    _enabled;
     [ObservableProperty] private string? _selectedPreset;
+    [ObservableProperty] private double  _preamp;
+
+    public string PreampLabel => $"{(Preamp >= 0 ? "+" : "")}{Preamp:0} dB";
 
     // Built-in presets (10 bands: 31 62 125 250 500 1k 2k 4k 8k 16k Hz).
     private static readonly Dictionary<string, double[]> BuiltIn = new()
@@ -67,7 +70,16 @@ public partial class EqViewModel : ObservableObject
             Bands.Add(new EqBandViewModel(i, freqs[i], i < gains.Length ? gains[i] : 0, OnBandChanged));
 
         _enabled = manager.Eq.Enabled;
+        _preamp  = manager.Eq.PreampDb;
         ReloadPresets();
+    }
+
+    partial void OnPreampChanged(double value)
+    {
+        OnPropertyChanged(nameof(PreampLabel));
+        _manager.Eq.PreampDb = value;
+        _settings.EqPreamp   = value;
+        _settings.Save();
     }
 
     private void OnBandChanged(int index, double value)

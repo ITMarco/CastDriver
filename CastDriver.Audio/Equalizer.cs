@@ -14,11 +14,21 @@ public sealed class Equalizer
     private readonly object       _gate   = new();
     private readonly double[]     _gains  = new double[Frequencies.Length];
     private BiQuadFilter[][]      _filters = [];   // [channel][band]
-    private int _sampleRate;
-    private int _channels;
+    private int    _sampleRate;
+    private int    _channels;
+    private double _preampDb;
+    private float  _preampLinear = 1f;
 
     public bool Enabled { get; set; }
     public int  BandCount => Frequencies.Length;
+
+    // Overall make-up gain (dB) applied after the bands — to add loudness or pull back to
+    // avoid clipping from boosted bands.
+    public double PreampDb
+    {
+        get => _preampDb;
+        set { lock (_gate) { _preampDb = Math.Clamp(value, -MaxGainDb, MaxGainDb); _preampLinear = (float)Math.Pow(10, _preampDb / 20.0); } }
+    }
 
     public double[] GetGains()
     {
@@ -76,13 +86,14 @@ public sealed class Equalizer
         lock (_gate)
         {
             if (_filters.Length != channels) return; // not configured for this format
+            var preamp = _preampLinear;
             for (var i = 0; i + channels <= samples.Length; i += channels)
                 for (var c = 0; c < channels; c++)
                 {
                     var x     = samples[i + c];
                     var chain = _filters[c];
                     for (var b = 0; b < chain.Length; b++) x = chain[b].Transform(x);
-                    samples[i + c] = x;
+                    samples[i + c] = x * preamp;
                 }
         }
     }

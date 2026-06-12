@@ -37,7 +37,7 @@
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding Enabled}" Value="True">
                                 <Setter Property="Content"    Value="EQ: On"/>
-                                <Setter Property="Background"  Value="{StaticResource AccentBrush}"/>
+                                <Setter Property="Background"  Value="{StaticResource GreenBrush}"/>
                                 <Setter Property="Foreground"  Value="White"/>
                             </DataTrigger>
                         </Style.Triggers>
@@ -81,7 +81,24 @@
             </ItemsControl.ItemTemplate>
         </ItemsControl>
 
-        <TextBlock Text="Equalizes the cast stream only — your PC audio is unaffected. ±12 dB per band."
+        <!-- Pre-amp (overall make-up gain) -->
+        <Grid Margin="40,16,40,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="Pre-amp" Style="{StaticResource SmallStyle}"
+                       VerticalAlignment="Center" Margin="0,0,10,0"/>
+            <Slider Grid.Column="1" Minimum="-12" Maximum="12"
+                    Value="{Binding Preamp, Mode=TwoWay}"
+                    Style="{StaticResource VolumeSliderStyle}"
+                    Height="18" VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="2" Text="{Binding PreampLabel}" Style="{StaticResource SmallStyle}"
+                       VerticalAlignment="Center" Margin="10,0,0,0" MinWidth="48" TextAlignment="Right"/>
+        </Grid>
+
+        <TextBlock Text="Equalizes the cast stream only — your PC audio is unaffected. ±12 dB per band; use pre-amp to add loudness or pull back to avoid clipping."
                    Style="{StaticResource SmallStyle}" TextWrapping="Wrap"
                    HorizontalAlignment="Center" Margin="0,14,0,0"/>
 

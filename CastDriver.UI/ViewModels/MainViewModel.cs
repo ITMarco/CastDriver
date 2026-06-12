@@ -83,7 +83,8 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
             WpfApp.Current.Dispatcher.Invoke(() => FirewallWarning = true);
 
         // Restore saved EQ state, then build its view-model.
-        _manager.Eq.Enabled = _settings.EqEnabled;
+        _manager.Eq.Enabled  = _settings.EqEnabled;
+        _manager.Eq.PreampDb = _settings.EqPreamp;
         _manager.Eq.SetGains(_settings.EqGains);
         Eq = new EqViewModel(_manager, _settings);
 
