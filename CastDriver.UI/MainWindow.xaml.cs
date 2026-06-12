@@ -50,6 +50,12 @@ public partial class MainWindow : Window
     private void OnOpenAbout(object sender, RoutedEventArgs e) =>
         new AboutWindow { Owner = this }.ShowDialog();
 
+    private void OnOpenEq(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm)
+            new EqWindow { Owner = this, DataContext = vm.Eq }.Show();
+    }
+
     // Clicking outside the window hides it — unless the user pinned it open.
     protected override void OnDeactivated(EventArgs e)
     {

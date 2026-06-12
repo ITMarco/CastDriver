@@ -45,6 +45,7 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
     public ICollectionView SourcesView => _sourcesView.View;
 
     public IReadOnlyList<int> Bitrates { get; } = [128, 192, 256, 320];
+    public EqViewModel Eq { get; }
 
     public string VolumeLabel  => $"{(int)Volume}%";
     public string AppVersion   => AppInfo.Display;
@@ -80,6 +81,11 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         _manager.CastEnded           += OnCastEnded;
         _manager.ReceiverUnreachable += (_, _) =>
             WpfApp.Current.Dispatcher.Invoke(() => FirewallWarning = true);
+
+        // Restore saved EQ state, then build its view-model.
+        _manager.Eq.Enabled = _settings.EqEnabled;
+        _manager.Eq.SetGains(_settings.EqGains);
+        Eq = new EqViewModel(_manager, _settings);
 
         _ = InitializeAsync();
     }

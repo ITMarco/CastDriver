@@ -1,0 +1,93 @@
+<Window x:Class="CastDriver.UI.EqWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Equalizer"
+        Icon="icon.ico"
+        Width="600" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#1C1C1E">
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/Dark.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <StackPanel Margin="20">
+
+        <!-- Toolbar -->
+        <Grid Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Bypass toggle -->
+            <Button Grid.Column="0" Command="{Binding ToggleBypassCommand}"
+                    Padding="14,6" FontSize="12" Margin="0,0,8,0">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource GhostButtonStyle}">
+                        <Setter Property="Content" Value="EQ: Off (bypassed)"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Enabled}" Value="True">
+                                <Setter Property="Content"    Value="EQ: On"/>
+                                <Setter Property="Background"  Value="{StaticResource AccentBrush}"/>
+                                <Setter Property="Foreground"  Value="White"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+
+            <Button Grid.Column="1" Content="Reset" Command="{Binding ResetCommand}"
+                    Style="{StaticResource GhostButtonStyle}" Padding="14,6" FontSize="12"/>
+
+            <TextBlock Grid.Column="3" Text="Preset" Style="{StaticResource SmallStyle}"
+                       VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <StackPanel Grid.Column="4" Orientation="Horizontal">
+                <ComboBox Width="150" Style="{StaticResource DarkComboBox}"
+                          ItemsSource="{Binding Presets}"
+                          SelectedItem="{Binding SelectedPreset, Mode=TwoWay}"/>
+                <Button Content="Save…" Click="OnSavePreset"
+                        Style="{StaticResource GhostButtonStyle}"
+                        Padding="12,6" FontSize="12" Margin="8,0,0,0"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- Band sliders -->
+        <ItemsControl ItemsSource="{Binding Bands}" HorizontalAlignment="Center">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Width="50" Margin="2,0">
+                        <TextBlock Text="{Binding GainLabel}" Style="{StaticResource SmallStyle}"
+                                   HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                        <Slider Style="{StaticResource EqSliderStyle}"
+                                Minimum="-12" Maximum="12" Height="170"
+                                Value="{Binding Gain, Mode=TwoWay}"
+                                HorizontalAlignment="Center"/>
+                        <TextBlock Text="{Binding Label}" Style="{StaticResource SmallStyle}"
+                                   HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                    </StackPanel>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <TextBlock Text="Equalizes the cast stream only — your PC audio is unaffected. ±12 dB per band."
+                   Style="{StaticResource SmallStyle}" TextWrapping="Wrap"
+                   HorizontalAlignment="Center" Margin="0,14,0,0"/>
+
+        <Button Content="Close" Click="OnClose"
+                Style="{StaticResource PrimaryButtonStyle}"
+                Padding="18,6" FontSize="12"
+                HorizontalAlignment="Right" Margin="0,16,0,0"/>
+    </StackPanel>
+</Window>

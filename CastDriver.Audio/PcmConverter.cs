@@ -36,6 +36,47 @@ public static class PcmConverter
             $"Unsupported WASAPI format: encoding={encoding} bits={bits}");
     }
 
+    // Decode any supported input format to interleaved float samples (-1..1) — used by the
+    // equalizer, which works in the float domain.
+    public static float[] ToFloat(byte[] input, WaveFormat format)
+    {
+        var (encoding, bits) = Unwrap(format);
+
+        if (encoding == WaveFormatEncoding.IeeeFloat && bits == 32 || bits == 32 && encoding != WaveFormatEncoding.Pcm)
+        {
+            var n = input.Length / 4;
+            var o = new float[n];
+            for (var i = 0; i < n; i++) o[i] = BitConverter.ToSingle(input, i * 4);
+            return o;
+        }
+        if (encoding == WaveFormatEncoding.Pcm && bits == 32)
+        {
+            var n = input.Length / 4;
+            var o = new float[n];
+            for (var i = 0; i < n; i++) o[i] = BitConverter.ToInt32(input, i * 4) / 2147483648f;
+            return o;
+        }
+        // default: 16-bit PCM
+        {
+            var n = input.Length / 2;
+            var o = new float[n];
+            for (var i = 0; i < n; i++) o[i] = BitConverter.ToInt16(input, i * 2) / 32768f;
+            return o;
+        }
+    }
+
+    // Encode interleaved float samples to 16-bit PCM (with gain), clamping to avoid overflow.
+    public static byte[] FloatToPcm16(float[] samples, float gain = 1.0f)
+    {
+        var output = new byte[samples.Length * 2];
+        for (var i = 0; i < samples.Length; i++)
+        {
+            var s16 = (short)Math.Clamp((int)(samples[i] * gain * 32767f), short.MinValue, short.MaxValue);
+            BitConverter.TryWriteBytes(output.AsSpan(i * 2), s16);
+        }
+        return output;
+    }
+
     // Unwraps WaveFormatExtensible (which WASAPI almost always returns) to the
     // real encoding and bit depth.
     private static (WaveFormatEncoding encoding, int bits) Unwrap(WaveFormat format)

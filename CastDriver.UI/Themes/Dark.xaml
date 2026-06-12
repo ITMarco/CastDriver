@@ -276,4 +276,61 @@
         </Setter>
     </Style>
 
+    <!-- ── Vertical EQ slider ── -->
+    <Style x:Key="EqSliderStyle" TargetType="Slider">
+        <Setter Property="Orientation"          Value="Vertical"/>
+        <Setter Property="IsMoveToPointEnabled" Value="True"/>
+        <Setter Property="SmallChange"          Value="1"/>
+        <Setter Property="Width"                Value="36"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Slider">
+                    <Grid>
+                        <Border Width="4" CornerRadius="2"
+                                Background="{StaticResource BorderBrush}"
+                                HorizontalAlignment="Center"/>
+                        <!-- centre (0 dB) reference line -->
+                        <Border Height="2" Background="{StaticResource TextTertiaryBrush}"
+                                VerticalAlignment="Center" Width="18"/>
+                        <Track x:Name="PART_Track">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Command="Slider.DecreaseLarge" Focusable="False">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <Border Background="Transparent"/>
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.DecreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb>
+                                    <Thumb.Template>
+                                        <ControlTemplate TargetType="Thumb">
+                                            <Border Width="24" Height="12" CornerRadius="3"
+                                                    Background="White">
+                                                <Border.Effect>
+                                                    <DropShadowEffect BlurRadius="6" ShadowDepth="1"
+                                                                      Color="Black" Opacity="0.4"/>
+                                                </Border.Effect>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                            </Track.Thumb>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Command="Slider.IncreaseLarge" Focusable="False">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <Border Background="Transparent"/>
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.IncreaseRepeatButton>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
 </ResourceDictionary>

@@ -3,6 +3,13 @@ using System.Text.Json;
 
 namespace CastDriver.UI;
 
+// A user-saved equalizer preset.
+public sealed class EqPresetData
+{
+    public string   Name  { get; set; } = "";
+    public double[] Gains { get; set; } = [];
+}
+
 // Small JSON-backed settings file in %APPDATA%\CastDriver\settings.json.
 public sealed class AppSettings
 {
@@ -34,6 +41,11 @@ public sealed class AppSettings
 
     // For an app source: cast everything EXCEPT the chosen app (instead of only it).
     public bool ExcludeApp { get; set; }
+
+    // Equalizer: enabled flag, per-band gains (dB), and user-saved presets.
+    public bool               EqEnabled { get; set; }
+    public double[]?          EqGains   { get; set; }
+    public List<EqPresetData> EqPresets { get; set; } = [];
 
     private static string Dir =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "CastDriver");

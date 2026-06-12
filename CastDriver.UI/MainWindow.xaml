@@ -240,6 +240,10 @@
                                Style="{StaticResource SmallStyle}" VerticalAlignment="Center"
                                Margin="8,0,0,0" MinWidth="52" TextAlignment="Right"/>
                 </Grid>
+
+                <Button Content="🎚 Equalizer" Click="OnOpenEq"
+                        Style="{StaticResource GhostButtonStyle}"
+                        HorizontalAlignment="Left" Padding="12,6" FontSize="12" Margin="0,10,0,0"/>
             </StackPanel>
 
             <!-- ── Volume section ────────────────────────────────── -->

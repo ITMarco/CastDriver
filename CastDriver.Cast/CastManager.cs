@@ -60,6 +60,9 @@ public sealed class CastManager : IAsyncDisposable
     // The friendly name of the device being captured (shown in the UI).
     public string? CaptureDeviceName { get; private set; }
 
+    // Graphic equalizer applied to the cast stream (not to local audio).
+    public Equalizer Eq { get; } = new();
+
     public event EventHandler<ICastDevice>? DeviceDiscovered;
     public event EventHandler<ICastDevice>? DeviceLost;
     public event EventHandler<string>?      SessionError;
@@ -108,10 +111,22 @@ public sealed class CastManager : IAsyncDisposable
         var rawFormat = _capture.WaveFormat;
         var pcm16     = PcmConverter.ToPcm16Format(rawFormat);
         _mediaServer.SetFormat(pcm16, Codec, Mp3Bitrate);
+        Eq.Configure(rawFormat.SampleRate, rawFormat.Channels);
 
         _capture.DataAvailable += (_, e) =>
         {
-            var pcm = PcmConverter.Convert(e.Buffer[..e.BytesRecorded], rawFormat, _castGain);
+            byte[] pcm;
+            if (Eq.Enabled)
+            {
+                // EQ runs in the float domain, then we encode to PCM16.
+                var f = PcmConverter.ToFloat(e.Buffer[..e.BytesRecorded], rawFormat);
+                Eq.Process(f, rawFormat.Channels);
+                pcm = PcmConverter.FloatToPcm16(f, _castGain);
+            }
+            else
+            {
+                pcm = PcmConverter.Convert(e.Buffer[..e.BytesRecorded], rawFormat, _castGain);
+            }
             _mediaServer.PushPcmData(pcm);
         };
 
