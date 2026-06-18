@@ -1,4 +1,5 @@
 using System.Windows.Media;
+using CastDriver.Cast;
 using Application = System.Windows.Application;
 using Color = System.Windows.Media.Color;
 
