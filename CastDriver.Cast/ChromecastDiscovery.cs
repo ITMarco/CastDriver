@@ -70,6 +70,13 @@ public sealed class ChromecastDiscovery : IDisposable
         _reQueryTimer.Start();
     }
 
+    // Re-send the discovery query immediately (manual "refresh now"). Known devices stay;
+    // this just prompts late/new devices and ones with expired TTLs to re-announce.
+    public void Refresh()
+    {
+        if (_sockets.Count > 0) SendQuery();
+    }
+
     // ── Send PTR query ────────────────────────────────────────────────────────
 
     private void SendQuery()

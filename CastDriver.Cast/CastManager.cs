@@ -85,6 +85,13 @@ public sealed class CastManager : IAsyncDisposable
         _dlna.Start();
     }
 
+    // Manually re-issue discovery queries on both protocols (the "refresh now" button).
+    public void RefreshDiscovery()
+    {
+        _discovery.Refresh();
+        _dlna.Refresh();
+    }
+
     private void OnFound(ICastDevice d)
     {
         _knownDevices[d.Id] = d;

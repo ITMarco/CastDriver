@@ -6,7 +6,7 @@
         Width="600" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
-        Background="{StaticResource BgBrush}">
+        Background="{DynamicResource BgBrush}">
 
     <StackPanel Margin="20">
 
@@ -29,7 +29,7 @@
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding Enabled}" Value="True">
                                 <Setter Property="Content"    Value="EQ: On"/>
-                                <Setter Property="Background"  Value="{StaticResource GreenBrush}"/>
+                                <Setter Property="Background"  Value="{DynamicResource GreenBrush}"/>
                                 <Setter Property="Foreground"  Value="White"/>
                             </DataTrigger>
                         </Style.Triggers>

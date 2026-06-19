@@ -5,7 +5,7 @@
         Icon="icon.ico"
         Width="640" Height="520"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource BgBrush}">
+        Background="{DynamicResource BgBrush}">
 
     <Grid Margin="16">
         <Grid.RowDefinitions>
@@ -17,7 +17,7 @@
 
         <!-- Header -->
         <TextBlock Grid.Row="0" Text="Diagnostics"
-                   Foreground="{StaticResource TextPrimaryBrush}"
+                   Foreground="{DynamicResource TextPrimaryBrush}"
                    FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
 
         <!-- Controls -->
@@ -30,7 +30,7 @@
             <StackPanel Grid.Column="0" VerticalAlignment="Center">
                 <CheckBox x:Name="LoggingCheck"
                           Content="Enable logging"
-                          Foreground="{StaticResource TextPrimaryBrush}"
+                          Foreground="{DynamicResource TextPrimaryBrush}"
                           FontSize="13"
                           Checked="OnToggleLogging" Unchecked="OnToggleLogging"/>
                 <TextBlock x:Name="PathText"
@@ -50,13 +50,13 @@
 
         <!-- Log contents -->
         <Border Grid.Row="2"
-                Background="{StaticResource SurfaceBrush}"
-                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                 CornerRadius="8">
             <TextBox x:Name="LogText"
                      IsReadOnly="True"
                      Background="Transparent"
-                     Foreground="{StaticResource TextSecondaryBrush}"
+                     Foreground="{DynamicResource TextSecondaryBrush}"
                      BorderThickness="0"
                      FontFamily="Consolas" FontSize="12"
                      Padding="10"

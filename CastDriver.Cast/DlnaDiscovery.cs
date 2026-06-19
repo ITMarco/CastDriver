@@ -76,6 +76,13 @@ public sealed class DlnaDiscovery : IDisposable
         _reQueryTimer.Start();
     }
 
+    // Re-send the SSDP M-SEARCH immediately (manual "refresh now"). Already-seen devices are
+    // skipped by the location/UDN guards, so this surfaces newly-arrived renderers.
+    public void Refresh()
+    {
+        if (_sockets.Count > 0) SendSearch();
+    }
+
     private void SendSearch()
     {
         var target = new IPEndPoint(IPAddress.Parse(MulticastIp), SsdpPort);

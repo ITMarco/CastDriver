@@ -6,11 +6,11 @@
         Width="420" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
-        Background="{StaticResource BgBrush}">
+        Background="{DynamicResource BgBrush}">
 
     <StackPanel Margin="24">
         <TextBlock Text="CastDriver"
-                   Foreground="{StaticResource TextPrimaryBrush}"
+                   Foreground="{DynamicResource TextPrimaryBrush}"
                    FontSize="22" FontWeight="SemiBold"/>
         <TextBlock x:Name="VersionText" Text="Version 1.0"
                    Style="{StaticResource SmallStyle}" Margin="0,2,0,0"/>
@@ -40,7 +40,7 @@
             <TextBlock Grid.Row="1" Grid.Column="1" FontSize="13" Margin="0,0,0,6">
                 <Hyperlink NavigateUri="https://github.com/ITMarco/CastDriver"
                            RequestNavigate="OnNavigate"
-                           Foreground="{StaticResource AccentBrush}">
+                           Foreground="{DynamicResource AccentBrush}">
                     github.com/ITMarco/CastDriver
                 </Hyperlink>
             </TextBlock>
@@ -57,8 +57,8 @@
 
         <!-- Preferences -->
         <TextBlock Text="PREFERENCES" Style="{StaticResource LabelStyle}" Margin="0,20,0,6"/>
-        <Border Background="{StaticResource SurfaceBrush}"
-                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+        <Border Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                 CornerRadius="8" Padding="12">
             <StackPanel>
                 <Grid Margin="0,0,0,10">

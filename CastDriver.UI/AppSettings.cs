@@ -23,8 +23,9 @@ public sealed class AppSettings
     // Whether diagnostic logging is enabled (toggled from the Debug screen).
     public bool LoggingEnabled { get; set; } = true;
 
-    // Whether the window is pinned open (doesn't auto-hide on focus loss).
-    public bool Pinned { get; set; }
+    // Whether the window is pinned open (doesn't auto-hide on focus loss). On by default so
+    // the app shows in the taskbar and stays open until the user explicitly unpins it.
+    public bool Pinned { get; set; } = true;
 
     // Stream as MP3 (compressed, wide compatibility) instead of WAV (lossless).
     public bool UseMp3 { get; set; }

@@ -20,6 +20,11 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
     private readonly DispatcherTimer _levelTimer;
     private bool                  _initializing = true;
 
+    // Tracks the Windows system volume so our slider stays in sync when the user changes
+    // volume from the tray flyout or media keys. Kept so we can detach on device switch.
+    private AudioEndpointVolumeNotificationDelegate? _volNotify;
+    private MMDevice?              _volNotifyDevice;
+
     [ObservableProperty] private ObservableCollection<DeviceViewModel> _devices = [];
     [ObservableProperty] private ObservableCollection<AudioEndpointInfo> _sources = [];
     [ObservableProperty] private AudioEndpointInfo? _selectedSource;
@@ -230,6 +235,24 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         _ = RestartCastsAsync(() => { _manager.Mp3Bitrate = value; return Task.CompletedTask; });
     }
 
+    // Manually re-scan the network for cast devices. Existing devices stay; this prompts
+    // late/new ones to announce. Shows the scanning indicator for a couple of seconds.
+    [RelayCommand]
+    private async Task RefreshDevices()
+    {
+        if (IsScanning) return;
+        IsScanning = true;
+        UpdateDiscoveryStatus("Scanning for cast devices…");
+        _manager.RefreshDiscovery();
+
+        await Task.Delay(3_000);
+
+        IsScanning = false;
+        UpdateDiscoveryStatus(Devices.Count == 0
+            ? "No cast devices found on your network."
+            : $"{Devices.Count} device(s) found.");
+    }
+
     [RelayCommand]
     private void FixFirewall()
     {
@@ -272,8 +295,41 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
             using var enumerator = new MMDeviceEnumerator();
             var def = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
             IsDefaultDevice = def.ID == _captureDevice.ID;
+
+            SubscribeVolumeNotifications();
         }
         catch { CaptureDeviceName = "Unknown device"; }
+    }
+
+    // Subscribe to the capture endpoint's volume notifications so external changes (Windows
+    // tray volume, media keys, other apps) push into our slider. We update the backing fields
+    // directly — not the setters — so we don't echo the change back to the device.
+    private void SubscribeVolumeNotifications()
+    {
+        if (_volNotifyDevice != null && _volNotify != null)
+            try { _volNotifyDevice.AudioEndpointVolume.OnVolumeNotification -= _volNotify; } catch { }
+        _volNotify = null;
+        _volNotifyDevice = null;
+
+        if (_captureDevice == null) return;
+
+        _volNotifyDevice = _captureDevice;
+        _volNotify = data => WpfApp.Current.Dispatcher.Invoke(() =>
+        {
+            var v = Math.Round(data.MasterVolume * 100.0);
+            if (Math.Abs(v - _volume) > 0.5)
+            {
+                _volume = v;
+                OnPropertyChanged(nameof(Volume));
+                OnPropertyChanged(nameof(VolumeLabel));
+            }
+            if (data.Muted != _isMuted)
+            {
+                _isMuted = data.Muted;
+                OnPropertyChanged(nameof(IsMuted));
+            }
+        });
+        try { _captureDevice.AudioEndpointVolume.OnVolumeNotification += _volNotify; } catch { }
     }
 
     // ── Volume ───────────────────────────────────────────────────────────────
@@ -445,6 +501,8 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         _levelTimer.Stop();
+        if (_volNotifyDevice != null && _volNotify != null)
+            try { _volNotifyDevice.AudioEndpointVolume.OnVolumeNotification -= _volNotify; } catch { }
         await _manager.DisposeAsync();
     }
 }
