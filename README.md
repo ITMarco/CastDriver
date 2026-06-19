@@ -29,7 +29,7 @@ If you're not sure, grab **`CastDriver-standalone.exe`** and just run it.
 ## How to use it
 
 1. **Pick a Source** — your speakers/output (the whole PC), a specific **app** (🎵), or an **input** (🎤 line-in / mic). The list groups Devices on top and Applications below.
-2. **Hit Cast ▶** next to a discovered device. Cast to several at once.
+2. **Hit Cast ▶** next to a discovered device. Cast to several at once. Devices appear automatically as they're found; hit the **↻ refresh** button (top-right of *Cast to*) to scan again on demand.
 3. **Per device:** adjust each device's **volume** and **🔇 mute** independently (mute feeds silence so it resumes instantly; no quality change).
 4. **Equalizer:** open **🎚 Equalizer** for a 10-band graphic EQ with presets, savable custom presets, a pre-amp, and a one-click bypass to A/B it. EQ affects the cast only — your PC audio stays flat.
 
@@ -38,7 +38,9 @@ If you're not sure, grab **`CastDriver-standalone.exe`** and just run it.
 - **Cast everything except this app** — when an app is the source, cast the whole PC *minus* that app (e.g. mute notifications or a meeting from the cast).
 - **Format** — WAV (lossless) or MP3 (smaller, wide compatibility incl. picky renderers like Sonos); pick the MP3 bitrate.
 - **Latency** slider — trade lag for stability to suit your network.
-- **Preferences** (in *About*) — Start with Windows, Start minimized to tray, automatic update checks.
+- **Master volume** — the main volume slider stays in sync with Windows: change it from the tray volume flyout or media keys and the app follows (and vice-versa).
+- **📌 Pin** — the window is pinned open by default (stays put and shows in the taskbar). Unpin it to have it auto-hide when it loses focus, tray-popup style.
+- **Preferences** — Theme (dark / light), Start with Windows, Start minimized to tray, automatic update checks, and a Debug screen.
 - The app **checks for updates** and offers a one-click download when a newer version is out (toggle off in Preferences).
 
 ---
