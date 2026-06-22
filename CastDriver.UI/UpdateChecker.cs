@@ -10,7 +10,9 @@ public static class UpdateChecker
     private static readonly string LatestApi =
         $"https://api.github.com/repos/{AppInfo.Repo}/releases/latest";
 
-    public sealed record Result(bool Available, string LatestTag, string Url, string? Feature);
+    public sealed record Result(
+        bool Available, string LatestTag, string Url, string? Feature,
+        string? AssetUrl, string? AssetSha256);
 
     public static async Task<Result?> CheckAsync(Version current)
     {
@@ -30,9 +32,38 @@ public static class UpdateChecker
             if (latest == null || url == null) return null;
 
             var available = Normalize(latest) > Normalize(current);
-            return new Result(available, tag!, url, ExtractFeature(body));
+            var assetUrl  = FindAssetUrl(root, AppInfo.UpdateAssetName);
+            var sha       = ExtractSha256(body, AppInfo.UpdateAssetName);
+            return new Result(available, tag!, url, ExtractFeature(body), assetUrl, sha);
         }
         catch { return null; }
+    }
+
+    // The direct download URL for the release asset matching this build's variant.
+    private static string? FindAssetUrl(JsonElement root, string assetName)
+    {
+        if (!root.TryGetProperty("assets", out var assets) || assets.ValueKind != JsonValueKind.Array)
+            return null;
+        foreach (var a in assets.EnumerateArray())
+        {
+            var name = a.TryGetProperty("name", out var n) ? n.GetString() : null;
+            if (!string.Equals(name, assetName, StringComparison.OrdinalIgnoreCase)) continue;
+            return a.TryGetProperty("browser_download_url", out var u) ? u.GetString() : null;
+        }
+        return null;
+    }
+
+    // Pull the asset's SHA-256 from the release notes — a line like "CastDriver.exe: <64 hex>".
+    private static string? ExtractSha256(string? body, string assetName)
+    {
+        if (string.IsNullOrWhiteSpace(body)) return null;
+        foreach (var raw in body.Split('\n'))
+        {
+            if (raw.IndexOf(assetName, StringComparison.OrdinalIgnoreCase) < 0) continue;
+            var m = System.Text.RegularExpressions.Regex.Match(raw, "[0-9a-fA-F]{64}");
+            if (m.Success) return m.Value;
+        }
+        return null;
     }
 
     // Pull the headline feature out of the release notes — the first line that reads

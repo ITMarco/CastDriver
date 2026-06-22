@@ -7,7 +7,9 @@ namespace CastDriver.UI;
 
 public partial class AboutWindow : Window
 {
-    private string _updateUrl = "";
+    private string  _updateUrl = "";
+    private string? _assetUrl;
+    private string? _assetSha;
 
     private bool _ready;
 
@@ -57,6 +59,8 @@ public partial class AboutWindow : Window
             else if (res.Available)
             {
                 _updateUrl               = res.Url;
+                _assetUrl                = res.AssetUrl;
+                _assetSha                = res.AssetSha256;
                 UpdateStatus.Text        = string.IsNullOrWhiteSpace(res.Feature)
                     ? $"Update available: {res.LatestTag}"
                     : $"Update available: {res.LatestTag} — {res.Feature}";
@@ -70,9 +74,30 @@ public partial class AboutWindow : Window
         finally { CheckButton.IsEnabled = true; }
     }
 
-    private void OnDownloadUpdate(object sender, RoutedEventArgs e)
+    private async void OnDownloadUpdate(object sender, RoutedEventArgs e)
     {
-        if (!string.IsNullOrEmpty(_updateUrl)) OpenUrl(_updateUrl);
+        if (string.IsNullOrEmpty(_assetUrl) || !SelfUpdater.CanSelfUpdate(out _))
+        {
+            if (!string.IsNullOrEmpty(_updateUrl)) OpenUrl(_updateUrl);
+            return;
+        }
+
+        try
+        {
+            DownloadButton.IsEnabled = false;
+            var progress = new Progress<double>(p => UpdateStatus.Text = $"Downloading… {(int)(p * 100)}%");
+            if (await SelfUpdater.DownloadAndApplyAsync(_assetUrl, _assetSha, progress))
+            {
+                UpdateStatus.Text = "Restarting to finish update…";
+                (System.Windows.Application.Current as App)?.ExitApp();
+            }
+        }
+        catch
+        {
+            UpdateStatus.Text = "Update failed — opening the download page";
+            if (!string.IsNullOrEmpty(_updateUrl)) OpenUrl(_updateUrl);
+        }
+        finally { DownloadButton.IsEnabled = true; }
     }
 
     private void OnToggleDisableCheck(object sender, RoutedEventArgs e)

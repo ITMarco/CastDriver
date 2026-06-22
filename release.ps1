@@ -63,13 +63,20 @@ $common = @(
 )
 
 Write-Host "Building self-contained build..." -ForegroundColor Cyan
-dotnet publish @common --self-contained true -p:EnableCompressionInSingleFile=true -o "$dist/standalone"
+# SelfContainedBuild=true defines SELF_CONTAINED so this build updates itself with the
+# standalone asset (the framework build below updates itself with CastDriver.exe).
+dotnet publish @common --self-contained true -p:EnableCompressionInSingleFile=true -p:SelfContainedBuild=true -o "$dist/standalone"
 
 Write-Host "Building framework-dependent build..." -ForegroundColor Cyan
 dotnet publish @common --self-contained false -o "$dist/framework"
 
 Copy-Item "$dist/framework/CastDriver.UI.exe"  "$dist/CastDriver.exe" -Force
 Copy-Item "$dist/standalone/CastDriver.UI.exe" "$dist/CastDriver-standalone.exe" -Force
+
+# SHA-256 of each asset — written into the release notes so the in-app updater can verify
+# its download before installing it.
+$shaFramework  = (Get-FileHash "$dist/CastDriver.exe"            -Algorithm SHA256).Hash
+$shaStandalone = (Get-FileHash "$dist/CastDriver-standalone.exe" -Algorithm SHA256).Hash
 
 # ── 4. Get a GitHub token from the git credential store ──────────────────────
 $cred  = "protocol=https`nhost=github.com`n`n" | git credential fill 2>$null
@@ -95,6 +102,10 @@ Downloads:
 - **CastDriver-standalone.exe** (~73 MB) — runs anywhere, no .NET install required.
 
 On first run, allow CastDriver through Windows Firewall so devices can reach the stream.
+
+### Checksums (SHA-256)
+- CastDriver.exe: $shaFramework
+- CastDriver-standalone.exe: $shaStandalone
 "@
 
 $body = @{

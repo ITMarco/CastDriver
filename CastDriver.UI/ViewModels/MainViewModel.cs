@@ -45,7 +45,9 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private double  _latencyMs = 1500;
     [ObservableProperty] private bool    _excludeApp;
     [ObservableProperty] private int     _selectedBitrate = 256;
-    private string _updateUrl = "";
+    private string  _updateUrl = "";
+    private string? _assetUrl;
+    private string? _assetSha;
 
     private readonly CollectionViewSource _sourcesView = new();
     public ICollectionView SourcesView => _sourcesView.View;
@@ -188,14 +190,43 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         WpfApp.Current.Dispatcher.Invoke(() =>
         {
             _updateUrl      = res.Url;
+            _assetUrl       = res.AssetUrl;
+            _assetSha       = res.AssetSha256;
             UpdateText      = $"New version available {res.LatestTag}";
             UpdateFeature   = string.IsNullOrWhiteSpace(res.Feature) ? "" : $"Feature: {res.Feature}";
             UpdateAvailable = true;
         });
     }
 
+    // Download and install the update in-app when we can; otherwise fall back to the browser.
     [RelayCommand]
-    private void OpenUpdate()
+    private async Task OpenUpdate()
+    {
+        if (string.IsNullOrEmpty(_assetUrl) || !SelfUpdater.CanSelfUpdate(out _))
+        {
+            OpenReleasePage();
+            return;
+        }
+
+        try
+        {
+            UpdateText = "Downloading update… 0%";
+            var progress = new Progress<double>(p => UpdateText = $"Downloading update… {(int)(p * 100)}%");
+            if (await SelfUpdater.DownloadAndApplyAsync(_assetUrl, _assetSha, progress))
+            {
+                UpdateText = "Restarting to finish update…";
+                (WpfApp.Current as App)?.ExitApp(); // graceful exit; the installer relaunches us
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Write($"[update] self-update failed: {ex.Message}");
+            UpdateText = "Update failed — opening the download page";
+            OpenReleasePage();
+        }
+    }
+
+    private void OpenReleasePage()
     {
         if (!string.IsNullOrEmpty(_updateUrl))
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(_updateUrl)

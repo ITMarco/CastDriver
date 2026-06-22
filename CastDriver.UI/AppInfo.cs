@@ -12,4 +12,12 @@ public static class AppInfo
 
     public static string Short   => $"{Version.Major}.{Version.Minor}";
     public static string Display => "v" + Short;
+
+    // Which release asset this build updates itself with. The standalone (self-contained)
+    // publish defines SELF_CONTAINED via release.ps1; the framework build doesn't.
+#if SELF_CONTAINED
+    public const string UpdateAssetName = "CastDriver-standalone.exe";
+#else
+    public const string UpdateAssetName = "CastDriver.exe";
+#endif
 }

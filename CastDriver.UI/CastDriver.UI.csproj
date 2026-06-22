@@ -19,7 +19,12 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon>icon.ico</ApplicationIcon>
-    <Version>1.13.1</Version>
+    <Version>1.14.0</Version>
+  </PropertyGroup>
+  <!-- release.ps1 passes SelfContainedBuild=true for the standalone publish so the app knows
+       to update itself with CastDriver-standalone.exe (vs CastDriver.exe for the framework build). -->
+  <PropertyGroup Condition="'$(SelfContainedBuild)' == 'true'">
+    <DefineConstants>$(DefineConstants);SELF_CONTAINED</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Resource Include="icon.ico" />

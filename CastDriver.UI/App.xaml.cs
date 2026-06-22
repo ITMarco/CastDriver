@@ -19,6 +19,16 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // Self-update installer mode: a freshly-downloaded build was launched to replace the
+        // old one. Do that and quit — never show the UI in this throwaway process.
+        if (e.Args.Length >= 3 && e.Args[0] == "--apply-update")
+        {
+            SelfUpdater.ApplyUpdate(e.Args[1], e.Args[2]);
+            Shutdown();
+            return;
+        }
+
         _startedAt = DateTime.UtcNow;
 
         ThemeManager.Apply(ThemeManager.Parse(AppSettings.Current.Theme));
