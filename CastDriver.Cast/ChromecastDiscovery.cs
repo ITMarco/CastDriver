@@ -18,6 +18,8 @@ public sealed class ChromecastDiscovery : IDisposable
     private readonly List<UdpClient>  _sockets  = [];
     private readonly Dictionary<string, ChromecastDevice> _seen = [];
     private readonly Dictionary<string, PendingDevice>    _pending = [];
+    private readonly Dictionary<string, DateTime>         _lastSeen = [];
+    private readonly object           _gate = new();
     private CancellationTokenSource   _cts = new();
     private System.Timers.Timer?      _reQueryTimer;
 
@@ -164,21 +166,52 @@ public sealed class ChromecastDiscovery : IDisposable
         if (ptrTarget == null || hostIp == null) return;
 
         var key = hostIp.ToString();
+        ChromecastDevice? newDevice = null;
 
-        // Accumulate partial info across messages before emitting.
-        if (!_pending.TryGetValue(key, out var p))
-            p = _pending[key] = new PendingDevice { Host = hostIp };
+        lock (_gate)
+        {
+            // Mark the device alive — PruneStale drops ones that stop answering our queries.
+            _lastSeen[key] = DateTime.UtcNow;
 
-        if (instanceName  != null) p.InstanceName  = instanceName;
-        if (friendlyName  != null) p.FriendlyName  = friendlyName;
-        if (port != 8009  || p.Port == 8009) p.Port = port;
+            // Accumulate partial info across messages before emitting.
+            if (!_pending.TryGetValue(key, out var p))
+                p = _pending[key] = new PendingDevice { Host = hostIp };
 
-        if (_seen.ContainsKey(key)) return; // already announced
+            if (instanceName  != null) p.InstanceName  = instanceName;
+            if (friendlyName  != null) p.FriendlyName  = friendlyName;
+            if (port != 8009  || p.Port == 8009) p.Port = port;
 
-        var displayName = p.FriendlyName ?? p.InstanceName ?? key;
-        var device = new ChromecastDevice { Name = displayName, Host = key, Port = p.Port };
-        _seen[key] = device;
-        DeviceFound?.Invoke(this, device);
+            if (_seen.ContainsKey(key)) return; // already announced
+
+            var displayName = p.FriendlyName ?? p.InstanceName ?? key;
+            newDevice = new ChromecastDevice { Name = displayName, Host = key, Port = p.Port };
+            _seen[key] = newDevice;
+        }
+
+        // Fire outside the lock: handlers hop to the UI thread synchronously, so holding the
+        // lock across the callback could deadlock against PruneStale.
+        DeviceFound?.Invoke(this, newDevice);
+    }
+
+    // Drop devices that haven't answered since the given cutoff (set just before a manual
+    // refresh re-queried). Raises DeviceLost so the manager/UI can remove them.
+    public void PruneStale(DateTime notSeenSince)
+    {
+        List<ChromecastDevice> lost = [];
+        lock (_gate)
+        {
+            foreach (var key in _seen.Keys.ToList())
+            {
+                if (_lastSeen.TryGetValue(key, out var ts) && ts >= notSeenSince) continue;
+                if (_seen.Remove(key, out var dev))
+                {
+                    _pending.Remove(key);
+                    _lastSeen.Remove(key);
+                    lost.Add(dev);
+                }
+            }
+        }
+        foreach (var d in lost) DeviceLost?.Invoke(this, d);
     }
 
     // ── DNS helpers ───────────────────────────────────────────────────────────

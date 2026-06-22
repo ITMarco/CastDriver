@@ -80,6 +80,11 @@ public sealed class CastManager : IAsyncDisposable
             DeviceLost?.Invoke(this, d);
         };
         _dlna.DeviceFound += (sender, d) => OnFound(d);
+        _dlna.DeviceLost  += (sender, d) =>
+        {
+            _knownDevices.TryRemove(d.Id, out _);
+            DeviceLost?.Invoke(this, d);
+        };
 
         _discovery.Start();
         _dlna.Start();
@@ -90,6 +95,14 @@ public sealed class CastManager : IAsyncDisposable
     {
         _discovery.Refresh();
         _dlna.Refresh();
+    }
+
+    // Drop devices that didn't respond to the latest refresh (cutoff = the instant just
+    // before RefreshDiscovery re-queried). Fires DeviceLost for each removed device.
+    public void PruneStaleDevices(DateTime notSeenSince)
+    {
+        _discovery.PruneStale(notSeenSince);
+        _dlna.PruneStale(notSeenSince);
     }
 
     private void OnFound(ICastDevice d)

@@ -26,12 +26,16 @@ public sealed class DlnaDiscovery : IDisposable
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(6) };
 
     private readonly List<UdpClient>  _sockets       = [];
-    private readonly HashSet<string>  _seenLocations = [];
-    private readonly HashSet<string>  _seenUdns      = [];
+    private readonly HashSet<string>  _seenLocations = [];          // locations being/already fetched
+    private readonly Dictionary<string, string>     _locationUdn = []; // location -> UDN
+    private readonly Dictionary<string, DlnaDevice> _devices     = []; // UDN -> device
+    private readonly Dictionary<string, DateTime>   _lastSeen    = []; // UDN -> last announce
+    private readonly object           _gate = new();
     private CancellationTokenSource   _cts = new();
     private System.Timers.Timer?      _reQueryTimer;
 
     public event EventHandler<DlnaDevice>? DeviceFound;
+    public event EventHandler<DlnaDevice>? DeviceLost;
 
     public void Start()
     {
@@ -110,7 +114,16 @@ public sealed class DlnaDiscovery : IDisposable
                 var response = Encoding.ASCII.GetString(result.Buffer);
                 var location = HeaderValue(response, "LOCATION");
                 if (location != null)
-                    _ = HandleLocationAsync(location);
+                {
+                    // If we already know this location, just refresh its last-seen time;
+                    // only fetch the (slow) description XML for genuinely new locations.
+                    string? knownUdn;
+                    lock (_gate) _locationUdn.TryGetValue(location, out knownUdn);
+                    if (knownUdn != null)
+                        lock (_gate) _lastSeen[knownUdn] = DateTime.UtcNow;
+                    else
+                        _ = HandleLocationAsync(location);
+                }
             }
             catch (OperationCanceledException) { break; }
             catch { /* ignore malformed */ }
@@ -119,8 +132,8 @@ public sealed class DlnaDiscovery : IDisposable
 
     private async Task HandleLocationAsync(string location)
     {
-        lock (_seenLocations)
-            if (!_seenLocations.Add(location)) return; // already processed
+        lock (_gate)
+            if (!_seenLocations.Add(location)) return; // already processing/processed
 
         try
         {
@@ -140,21 +153,64 @@ public sealed class DlnaDiscovery : IDisposable
             if (avControl == null) return; // not a renderer we can drive
             var rcControl  = FindControlUrl(doc, "RenderingControl", root);
 
-            lock (_seenUdns)
-                if (!_seenUdns.Add(udn)) return;
-
-            var device = new DlnaDevice
+            DlnaDevice? device = null;
+            lock (_gate)
             {
-                Name = name,
-                Id   = udn,
-                Host = root.Host,
-                AvTransportControlUrl      = avControl,
-                RenderingControlControlUrl = rcControl ?? "",
-            };
-            Log.Write($"[dlna] found '{name}' @ {root.Host} (AVTransport {avControl})");
-            DeviceFound?.Invoke(this, device);
+                _locationUdn[location] = udn;
+                _lastSeen[udn] = DateTime.UtcNow;
+                if (!_devices.ContainsKey(udn))
+                {
+                    device = new DlnaDevice
+                    {
+                        Name = name,
+                        Id   = udn,
+                        Host = root.Host,
+                        AvTransportControlUrl      = avControl,
+                        RenderingControlControlUrl = rcControl ?? "",
+                    };
+                    _devices[udn] = device;
+                }
+            }
+
+            if (device != null)
+            {
+                Log.Write($"[dlna] found '{name}' @ {root.Host} (AVTransport {avControl})");
+                DeviceFound?.Invoke(this, device);
+            }
         }
-        catch (Exception ex) { Log.Write($"[dlna] description fetch failed: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            // Allow a transient failure to be retried on the next announce/refresh.
+            lock (_gate) _seenLocations.Remove(location);
+            Log.Write($"[dlna] description fetch failed: {ex.Message}");
+        }
+    }
+
+    // Drop devices that haven't announced since the given cutoff (set just before a manual
+    // refresh re-searched). Raises DeviceLost so the manager/UI can remove them.
+    public void PruneStale(DateTime notSeenSince)
+    {
+        List<DlnaDevice> lost = [];
+        lock (_gate)
+        {
+            foreach (var udn in _devices.Keys.ToList())
+            {
+                if (_lastSeen.TryGetValue(udn, out var ts) && ts >= notSeenSince) continue;
+                if (_devices.Remove(udn, out var dev))
+                {
+                    _lastSeen.Remove(udn);
+                    lost.Add(dev);
+                    // Forget its location(s) so the device can be re-discovered if it returns.
+                    foreach (var loc in _locationUdn.Where(kv => kv.Value == udn)
+                                                    .Select(kv => kv.Key).ToList())
+                    {
+                        _locationUdn.Remove(loc);
+                        _seenLocations.Remove(loc);
+                    }
+                }
+            }
+        }
+        foreach (var d in lost) DeviceLost?.Invoke(this, d);
     }
 
     private static string? FindControlUrl(XDocument doc, string serviceSuffix, Uri root)

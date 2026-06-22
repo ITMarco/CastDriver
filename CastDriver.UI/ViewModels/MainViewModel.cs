@@ -243,9 +243,15 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         if (IsScanning) return;
         IsScanning = true;
         UpdateDiscoveryStatus("Scanning for cast devices…");
+
+        // Snapshot the moment before re-querying: any device that doesn't answer within the
+        // scan window is considered gone and pruned, so the list reflects what's live now.
+        var cutoff = DateTime.UtcNow;
         _manager.RefreshDiscovery();
 
-        await Task.Delay(3_000);
+        await Task.Delay(4_000);
+
+        _manager.PruneStaleDevices(cutoff);
 
         IsScanning = false;
         UpdateDiscoveryStatus(Devices.Count == 0
@@ -396,7 +402,11 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         WpfApp.Current.Dispatcher.Invoke(() =>
         {
             var vm = Devices.FirstOrDefault(x => x.Key == d.Id);
-            if (vm != null) Devices.Remove(vm);
+            if (vm == null) return;
+            // A device we're actively casting to is obviously still here — keep it even if it
+            // missed a discovery reply. A genuinely dead cast is handled by OnCastEnded.
+            if (vm.IsCasting) return;
+            Devices.Remove(vm);
         });
     }
 
