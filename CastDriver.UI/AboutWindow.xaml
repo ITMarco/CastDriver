@@ -79,6 +79,8 @@
                           Click="OnToggleStartMinimized" FontSize="12" Margin="0,8,0,0"/>
                 <CheckBox x:Name="DisableCheck" Content="Disable automatic update checks"
                           Click="OnToggleDisableCheck" FontSize="12" Margin="0,8,0,0"/>
+                <CheckBox x:Name="NotificationsCheck" Content="Suppress notifications"
+                          Click="OnToggleSuppressNotifications" FontSize="12" Margin="0,8,0,0"/>
 
                 <Separator Margin="0,12"/>
 

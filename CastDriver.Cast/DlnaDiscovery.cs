@@ -160,6 +160,10 @@ public sealed class DlnaDiscovery : IDisposable
                 _lastSeen[udn] = DateTime.UtcNow;
                 if (!_devices.ContainsKey(udn))
                 {
+                    // Sonos players have a UDN like "uuid:RINCON_XXXXXXXX..." — a reliable
+                    // brand signal that lets us use the Sonos-tuned streaming path.
+                    var isSonos = udn.Contains("RINCON_", StringComparison.OrdinalIgnoreCase);
+
                     device = new DlnaDevice
                     {
                         Name = name,
@@ -167,6 +171,7 @@ public sealed class DlnaDiscovery : IDisposable
                         Host = root.Host,
                         AvTransportControlUrl      = avControl,
                         RenderingControlControlUrl = rcControl ?? "",
+                        IsSonos = isSonos,
                     };
                     _devices[udn] = device;
                 }

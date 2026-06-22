@@ -37,6 +37,17 @@ public sealed class AppSettings
     // When true, the app launches hidden in the tray instead of showing its window.
     public bool StartMinimized { get; set; }
 
+    // When true, no tray notifications are shown (new device found, casting interrupted).
+    public bool SuppressNotifications { get; set; }
+
+    // Sonos device ids (UDNs) the user has forced onto the generic DLNA path instead of the
+    // Sonos fast path. Per-device because some players stream fine on the fast path and others
+    // don't. Absent = use the fast path (default).
+    public List<string> SonosCompatDeviceIds { get; set; } = [];
+
+    // When true, skip the "try MP3 first" hint shown when switching a Sonos to compatibility.
+    public bool SuppressSonosMp3Hint { get; set; }
+
     // UI theme: "Dark" (default) or "Light".
     public string Theme { get; set; } = "Dark";
 

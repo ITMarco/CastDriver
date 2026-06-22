@@ -23,6 +23,15 @@ public sealed class DlnaDevice : ICastDevice
     public string AvTransportControlUrl      { get; init; } = "";
     public string RenderingControlControlUrl { get; init; } = "";
 
+    // True for Sonos players (UDN starts with RINCON_). Enables the Sonos-tuned streaming
+    // path; the friendlier "Sonos" label is shown in the UI.
+    public bool IsSonos { get; init; }
+
+    // Per-device opt-out: when true, use the plain generic DLNA path instead of the Sonos
+    // fast path (fallback for players where the optimised path misbehaves). Mutable so the
+    // UI can flip it at runtime.
+    public bool SonosCompatibilityMode { get; set; }
+
     public CastKind Kind => CastKind.Dlna;
 
     public override string ToString() => Name;

@@ -40,6 +40,7 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
     [ObservableProperty] private bool    _isCastOnlyMode;
     [ObservableProperty] private bool    _updateAvailable;
     [ObservableProperty] private string  _updateText = "";
+    [ObservableProperty] private string  _updateFeature = "";
     [ObservableProperty] private bool    _firewallWarning;
     [ObservableProperty] private double  _latencyMs = 1500;
     [ObservableProperty] private bool    _excludeApp;
@@ -84,6 +85,8 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         _manager.SessionError        += (_, msg) => UpdateDiscoveryStatus(msg);
         _manager.DeviceVolumeReported += OnDeviceVolumeReported;
         _manager.CastEnded           += OnCastEnded;
+        _manager.Reconnecting        += OnReconnecting;
+        _manager.Reconnected         += OnReconnected;
         _manager.ReceiverUnreachable += (_, _) =>
             WpfApp.Current.Dispatcher.Invoke(() => FirewallWarning = true);
 
@@ -185,7 +188,8 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         WpfApp.Current.Dispatcher.Invoke(() =>
         {
             _updateUrl      = res.Url;
-            UpdateText      = $"Update available: {res.LatestTag}";
+            UpdateText      = $"New version available {res.LatestTag}";
+            UpdateFeature   = string.IsNullOrWhiteSpace(res.Feature) ? "" : $"Feature: {res.Feature}";
             UpdateAvailable = true;
         });
     }
@@ -277,15 +281,52 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         _settings.Save();
     }
 
+    // Raised when a cast stops because the device became unreachable (auto-reconnect gave up),
+    // as opposed to the user stopping it. The app shows a tray notification.
+    public event Action<string>? CastInterrupted;
+
+    // Raised on each auto-reconnect attempt so the app can notify when minimized.
+    public event Action<(string Name, int Attempt, int Max)>? ReconnectAttempt;
+
     private void OnCastEnded(object? sender, ICastDevice d)
     {
         WpfApp.Current.Dispatcher.Invoke(() =>
         {
             var vm = Devices.FirstOrDefault(x => x.Key == d.Id);
             if (vm == null) return;
-            vm.IsCasting = false;
-            vm.HasError  = true;
-            vm.ErrorText = "Connection lost";
+            vm.IsCasting       = false;
+            vm.IsReconnecting  = false;
+            vm.ReconnectText   = "";
+            vm.HasError        = true;
+            vm.ErrorText       = "Connection lost";
+            CastInterrupted?.Invoke(vm.Name);
+        });
+    }
+
+    private void OnReconnecting(object? sender, (ICastDevice Device, int Attempt, int Max) e)
+    {
+        WpfApp.Current.Dispatcher.Invoke(() =>
+        {
+            var vm = Devices.FirstOrDefault(x => x.Key == e.Device.Id);
+            if (vm == null) return;
+            vm.IsReconnecting = true;
+            vm.HasError       = false;
+            vm.ReconnectText  = $"Reconnecting… ({e.Attempt} of {e.Max})";
+            ReconnectAttempt?.Invoke((vm.Name, e.Attempt, e.Max));
+        });
+    }
+
+    private void OnReconnected(object? sender, ICastDevice d)
+    {
+        WpfApp.Current.Dispatcher.Invoke(() =>
+        {
+            var vm = Devices.FirstOrDefault(x => x.Key == d.Id);
+            if (vm == null) return;
+            vm.IsReconnecting = false;
+            vm.ReconnectText  = "";
+            vm.IsCasting      = true;
+            vm.HasError       = false;
+            vm.ErrorText      = "";
         });
     }
 
@@ -424,12 +465,58 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
         if (vm.IsCasting)
         {
             await _manager.StopCastingAsync(vm.Device);
-            vm.IsCasting  = false;
-            vm.HasError   = false;
-            vm.ErrorText  = "";
+            vm.IsCasting       = false;
+            vm.IsReconnecting  = false;
+            vm.ReconnectText   = "";
+            vm.HasError        = false;
+            vm.ErrorText       = "";
         }
         else
         {
+            await CastDeviceAsync(vm);
+        }
+    }
+
+    // Sonos only: flip this device between the fast and compatibility streaming paths. If it's
+    // currently casting, restart that one cast so the new path takes effect immediately.
+    [RelayCommand]
+    private async Task ToggleSonosMode(DeviceViewModel vm)
+    {
+        if (!vm.IsSonos) return;
+
+        if (!vm.SonosCompatibilityMode)
+        {
+            // About to enable compatibility mode. Nudge the user toward MP3 first (the usual
+            // Sonos fix) — but only when it's relevant: not already on MP3, hint not silenced.
+            if (!IsMp3 && !_settings.SuppressSonosMp3Hint)
+            {
+                var dlg = new SonosCompatibilityDialog();
+                dlg.ShowDialog();
+                switch (dlg.Choice)
+                {
+                    case SonosHintChoice.Cancel:
+                        return; // backed out — stay on the fast path
+                    case SonosHintChoice.ChangeToMp3:
+                        SelectedCodec = Mp3Option; // switches codec + restarts active casts
+                        return;                    // keep fast path; don't enable compatibility
+                    case SonosHintChoice.DontShowAgain:
+                        _settings.SuppressSonosMp3Hint = true;
+                        _settings.Save();
+                        break;                     // fall through and enable compatibility
+                    case SonosHintChoice.Proceed:
+                        break;                     // enable compatibility
+                }
+            }
+            vm.SonosCompatibilityMode = true;      // persists + updates the device
+        }
+        else
+        {
+            vm.SonosCompatibilityMode = false;     // back to the fast path
+        }
+
+        if (vm.IsCasting)
+        {
+            await _manager.StopCastingAsync(vm.Device); // intentional stop — no auto-reconnect
             await CastDeviceAsync(vm);
         }
     }

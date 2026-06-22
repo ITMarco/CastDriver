@@ -10,7 +10,8 @@
 #>
 param(
     [string]$Version = "",   # explicit "major.minor[.patch]"; empty = bump minor
-    [switch]$Major           # bump major instead of minor
+    [switch]$Major,          # bump major instead of minor
+    [string]$Feature = ""    # headline feature shown in the in-app update banner
 )
 
 $ErrorActionPreference = 'Stop'
@@ -75,9 +76,13 @@ $headers = @{
 }
 
 # ── 5. Create the release ────────────────────────────────────────────────────
+# The app parses a "Feature:" line out of these notes and shows it in the update banner.
+$featureLine = if ($Feature) { "**Feature:** $Feature`n`n" } else { "" }
+
 $notes = @"
 CastDriver $tag — cast Windows PC audio to Chromecast and DLNA devices.
 
+$featureLine
 Downloads:
 - **CastDriver.exe** (~4 MB) — needs the free .NET 10 Desktop Runtime (Windows x64): https://dotnet.microsoft.com/download/dotnet/10.0
 - **CastDriver-standalone.exe** (~73 MB) — runs anywhere, no .NET install required.

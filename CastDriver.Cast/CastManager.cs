@@ -43,6 +43,12 @@ public sealed class CastManager : IAsyncDisposable
     private readonly HashSet<string> _desired = [];
     public event EventHandler<ICastDevice>? CastEnded; // raised when a cast stops for good
 
+    private const int MaxReconnectAttempts = 5;
+    // Raised before each auto-reconnect attempt (1-based) so the UI can show progress.
+    public event EventHandler<(ICastDevice Device, int Attempt, int Max)>? Reconnecting;
+    // Raised when an auto-reconnect succeeds and the device is casting again.
+    public event EventHandler<ICastDevice>? Reconnected;
+
     // Raised when a cast started but no device connected back to our media server — almost
     // always Windows Firewall blocking inbound. The UI offers a one-click fix.
     public event EventHandler? ReceiverUnreachable;
@@ -261,14 +267,20 @@ public sealed class CastManager : IAsyncDisposable
     // backoff while the user still wants this device casting; gives up after a few tries.
     private async Task ReconnectAsync(ICastDevice device)
     {
-        for (var attempt = 1; attempt <= 5; attempt++)
+        for (var attempt = 1; attempt <= MaxReconnectAttempts; attempt++)
         {
             if (!_desired.Contains(device.Id)) return; // user stopped it meanwhile
+            Reconnecting?.Invoke(this, (device, attempt, MaxReconnectAttempts));
             await Task.Delay(2500);
             if (!_desired.Contains(device.Id) || _sessions.ContainsKey(device.Id)) return;
 
             Log.Write($"[cast] reconnect attempt {attempt} → {device.Name}");
-            try { await CastToDeviceAsync(device); return; }
+            try
+            {
+                await CastToDeviceAsync(device);
+                Reconnected?.Invoke(this, device);
+                return;
+            }
             catch (Exception ex) { Log.Write($"[cast] reconnect failed: {ex.Message}"); }
         }
 

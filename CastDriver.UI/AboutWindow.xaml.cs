@@ -18,6 +18,7 @@ public partial class AboutWindow : Window
         StartupCheck.IsChecked   = StartupRegistration.Enabled;
         MinimizedCheck.IsChecked = AppSettings.Current.StartMinimized;
         DisableCheck.IsChecked   = AppSettings.Current.DisableUpdateCheck;
+        NotificationsCheck.IsChecked = AppSettings.Current.SuppressNotifications;
 
         ThemeCombo.ItemsSource = new[] { "Dark", "Light" };
         ThemeCombo.SelectedItem = ThemeManager.Current.ToString();
@@ -56,7 +57,9 @@ public partial class AboutWindow : Window
             else if (res.Available)
             {
                 _updateUrl               = res.Url;
-                UpdateStatus.Text        = $"Update available: {res.LatestTag}";
+                UpdateStatus.Text        = string.IsNullOrWhiteSpace(res.Feature)
+                    ? $"Update available: {res.LatestTag}"
+                    : $"Update available: {res.LatestTag} — {res.Feature}";
                 DownloadButton.Visibility = Visibility.Visible;
             }
             else
@@ -75,6 +78,12 @@ public partial class AboutWindow : Window
     private void OnToggleDisableCheck(object sender, RoutedEventArgs e)
     {
         AppSettings.Current.DisableUpdateCheck = DisableCheck.IsChecked == true;
+        AppSettings.Current.Save();
+    }
+
+    private void OnToggleSuppressNotifications(object sender, RoutedEventArgs e)
+    {
+        AppSettings.Current.SuppressNotifications = NotificationsCheck.IsChecked == true;
         AppSettings.Current.Save();
     }
 

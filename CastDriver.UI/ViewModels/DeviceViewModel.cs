@@ -13,10 +13,17 @@ public partial class DeviceViewModel : ObservableObject
 
     public string Name => Device.Name;
     public string Key  => Device.Id;
-    public string KindLabel => Device.Kind == CastKind.Dlna ? "DLNA" : "Cast";
+    public bool   IsSonos => Device is DlnaDevice { IsSonos: true };
+    public string KindLabel => IsSonos ? "Sonos" : Device.Kind == CastKind.Dlna ? "DLNA" : "Cast";
+
+    // Sonos only: false = optimised "fast" streaming, true = generic DLNA fallback.
+    [ObservableProperty] private bool _sonosCompatibilityMode;
+    public string SonosModeLabel => SonosCompatibilityMode ? "Streaming: Compatibility" : "Streaming: Fast";
 
     [ObservableProperty] private bool   _isCasting;
     [ObservableProperty] private bool   _isConnecting;
+    [ObservableProperty] private bool   _isReconnecting;
+    [ObservableProperty] private string _reconnectText = "";
     [ObservableProperty] private bool   _hasError;
     [ObservableProperty] private string _errorText = "";
     [ObservableProperty] private double _volume = 100;   // this device's own volume (0–100)
@@ -33,6 +40,26 @@ public partial class DeviceViewModel : ObservableObject
     {
         Device   = device;
         _manager = manager;
+
+        // Restore this Sonos player's saved streaming preference (set the backing field
+        // directly so we don't trigger a save during construction).
+        if (device is DlnaDevice { IsSonos: true } sonos)
+        {
+            _sonosCompatibilityMode   = AppSettings.Current.SonosCompatDeviceIds.Contains(Key);
+            sonos.SonosCompatibilityMode = _sonosCompatibilityMode;
+        }
+    }
+
+    partial void OnSonosCompatibilityModeChanged(bool value)
+    {
+        if (Device is DlnaDevice d) d.SonosCompatibilityMode = value;
+
+        var ids = AppSettings.Current.SonosCompatDeviceIds;
+        if (value) { if (!ids.Contains(Key)) ids.Add(Key); }
+        else       ids.Remove(Key);
+        AppSettings.Current.Save();
+
+        OnPropertyChanged(nameof(SonosModeLabel));
     }
 
     // User dragged this device's slider → push the new level to the device.

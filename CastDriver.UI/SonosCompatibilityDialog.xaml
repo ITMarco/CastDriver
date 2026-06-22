@@ -1,0 +1,34 @@
+<Window x:Class="CastDriver.UI.SonosCompatibilityDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Sonos streaming"
+        Icon="icon.ico"
+        Width="440" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Topmost="True"
+        Background="{DynamicResource BgBrush}">
+
+    <StackPanel Margin="24">
+        <TextBlock Text="Try the MP3 stream first"
+                   Foreground="{DynamicResource TextPrimaryBrush}"
+                   FontSize="16" FontWeight="SemiBold"/>
+
+        <TextBlock TextWrapping="Wrap" Margin="0,10,0,0"
+                   Style="{StaticResource BodyStyle}"
+                   Text="Compatibility mode uses the standard DLNA path. On Sonos that works best with the MP3 stream — and switching to MP3 often fixes slow or unreliable playback on its own, while keeping the faster optimised path. We recommend trying MP3 before turning on full compatibility mode for this player."/>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button Content="Don't show again" Click="OnDontShowAgain"
+                    Style="{StaticResource GhostButtonStyle}"
+                    Padding="12,6" FontSize="12" Margin="0,0,8,0"/>
+            <Button Content="Okay" Click="OnProceed"
+                    Style="{StaticResource GhostButtonStyle}"
+                    Padding="14,6" FontSize="12" Margin="0,0,8,0"/>
+            <Button Content="Change to MP3 and continue" Click="OnChangeMp3"
+                    Style="{StaticResource PrimaryButtonStyle}"
+                    Padding="14,6" FontSize="12"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

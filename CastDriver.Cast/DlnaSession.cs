@@ -25,18 +25,25 @@ public sealed class DlnaSession : ICastSession
 
     public DlnaSession(DlnaDevice device) => _device = device;
 
+    // Use the Sonos-tuned path for Sonos players unless the user forced compatibility mode.
+    private bool UseSonosFastPath => _device.IsSonos && !_device.SonosCompatibilityMode;
+
     public async Task StartAsync(CastMedia media, CancellationToken ct = default)
     {
         try
         {
-            var metadata = BuildDidl(media);
-            Log.Write($"[dlna] SetAVTransportURI {media.Url} → {_device.Name}");
+            var fast     = UseSonosFastPath;
+            var uri      = fast ? SonosStreamUri(media) : media.Url;
+            var metadata = fast ? BuildSonosDidl(media) : BuildDidl(media);
+
+            Log.Write($"[dlna] SetAVTransportURI {uri} → {_device.Name}" +
+                      (fast ? " (Sonos fast path)" : ""));
             await SendTolerantAsync(_device.AvTransportControlUrl, AvTransport, "SetAVTransportURI",
-                $"<InstanceID>0</InstanceID><CurrentURI>{Xml(media.Url)}</CurrentURI>" +
-                $"<CurrentURIMetaData>{Xml(metadata)}</CurrentURIMetaData>", ct);
+                $"<InstanceID>0</InstanceID><CurrentURI>{Xml(uri)}</CurrentURI>" +
+                $"<CurrentURIMetaData>{Xml(metadata)}</CurrentURIMetaData>", ct, fast);
 
             await SendTolerantAsync(_device.AvTransportControlUrl, AvTransport, "Play",
-                "<InstanceID>0</InstanceID><Speed>1</Speed>", ct);
+                "<InstanceID>0</InstanceID><Speed>1</Speed>", ct, fast);
 
             IsActive = true;
 
@@ -55,17 +62,21 @@ public sealed class DlnaSession : ICastSession
     // So we cap the wait: if the device doesn't answer in time we assume it accepted the
     // command and move on. A genuine connection failure (HttpRequestException) still throws.
     private async Task SendTolerantAsync(
-        string controlUrl, string serviceType, string action, string argsXml, CancellationToken callerCt)
+        string controlUrl, string serviceType, string action, string argsXml,
+        CancellationToken callerCt, bool fast = false)
     {
+        // Sonos answers the broadcast idiom promptly, so we don't need the long LG-style
+        // grace period — a shorter cap keeps the "connecting" delay small.
+        var seconds = fast ? 4 : 8;
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(callerCt);
-        timeout.CancelAfter(TimeSpan.FromSeconds(8));
+        timeout.CancelAfter(TimeSpan.FromSeconds(seconds));
         try
         {
             await SoapAsync(controlUrl, serviceType, action, argsXml, timeout.Token);
         }
         catch (OperationCanceledException) when (!callerCt.IsCancellationRequested)
         {
-            Log.Write($"[dlna] {action} had no response in 8s — assuming the device accepted it");
+            Log.Write($"[dlna] {action} had no response in {seconds}s — assuming the device accepted it");
         }
     }
 
@@ -146,6 +157,34 @@ public sealed class DlnaSession : ICastSession
         $"<dc:title>{Xml(media.Title)}</dc:title>" +
         "<upnp:class>object.item.audioItem.musicTrack</upnp:class>" +
         $"<res protocolInfo=\"http-get:*:{media.ContentType}:*\">{Xml(media.Url)}</res>" +
+        "</item></DIDL-Lite>";
+
+    // Sonos treats a stream as a finite track (and pre-buffers it, slow to start) unless we
+    // present it as a live broadcast. For MP3 the dedicated x-rincon-mp3radio:// scheme puts
+    // Sonos straight into low-latency "internet radio" mode; other formats keep http:// but
+    // still get the audioBroadcast class below.
+    private static string SonosStreamUri(CastMedia media)
+    {
+        var isMp3 = media.ContentType.Contains("mpeg", StringComparison.OrdinalIgnoreCase)
+                 || media.ContentType.Contains("mp3",  StringComparison.OrdinalIgnoreCase);
+        if (isMp3 && media.Url.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+            return "x-rincon-mp3radio://" + media.Url["http://".Length..];
+        return media.Url;
+    }
+
+    // Sonos live-stream metadata: audioBroadcast class + the Rincon descriptor so the player
+    // accepts it as a continuous broadcast and starts playing immediately.
+    private static string BuildSonosDidl(CastMedia media) =>
+        "<DIDL-Lite xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\" " +
+        "xmlns:dc=\"http://purl.org/dc/elements/1.1/\" " +
+        "xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\" " +
+        "xmlns:r=\"urn:schemas-rinconnetworks-com:metadata-1-0/\">" +
+        "<item id=\"0\" parentID=\"-1\" restricted=\"1\">" +
+        $"<dc:title>{Xml(media.Title)}</dc:title>" +
+        "<upnp:class>object.item.audioItem.audioBroadcast</upnp:class>" +
+        $"<res protocolInfo=\"http-get:*:{media.ContentType}:*\">{Xml(media.Url)}</res>" +
+        "<desc id=\"cdudn\" nameSpace=\"urn:schemas-rinconnetworks-com:metadata-1-0/\">" +
+        "RINCON_AssociatedZPUDN</desc>" +
         "</item></DIDL-Lite>";
 
     private static string Xml(string s) => System.Security.SecurityElement.Escape(s) ?? s;

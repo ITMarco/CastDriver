@@ -14,10 +14,12 @@ public partial class App : Application
     private NotifyIcon?    _trayIcon;
     private MainWindow?    _window;
     private MainViewModel? _vm;
+    private DateTime       _startedAt;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        _startedAt = DateTime.UtcNow;
 
         ThemeManager.Apply(ThemeManager.Parse(AppSettings.Current.Theme));
         PreloadLame();
@@ -77,6 +79,9 @@ public partial class App : Application
                 ToggleWindow();
         };
 
+        // Clicking a "new device found" notification opens the window.
+        _trayIcon.BalloonTipClicked += (_, _) => _window?.ShowAtTrayCorner();
+
         // Right-click context menu.
         var menu = new ContextMenuStrip();
         menu.Items.Add("Show / Hide", null, (_, _) => ToggleWindow());
@@ -98,7 +103,26 @@ public partial class App : Application
         {
             _vm.Devices.CollectionChanged += OnDevicesChanged;
             foreach (var d in _vm.Devices) d.PropertyChanged += OnDevicePropertyChanged;
+            _vm.CastInterrupted += OnCastInterrupted;
+            _vm.ReconnectAttempt += OnReconnectAttempt;
         }
+    }
+
+    // A device we were casting to dropped off (reconnect exhausted) — let the user know.
+    private void OnCastInterrupted(string deviceName)
+    {
+        if (_trayIcon == null || AppSettings.Current.SuppressNotifications) return;
+        _trayIcon.ShowBalloonTip(5000, "Cast Sound",
+            $"Casting stopped, device {deviceName} disappeared", ToolTipIcon.Warning);
+    }
+
+    // Each auto-reconnect attempt — notify with the retry count when minimized to the tray.
+    private void OnReconnectAttempt((string Name, int Attempt, int Max) e)
+    {
+        if (_trayIcon == null || AppSettings.Current.SuppressNotifications) return;
+        if (_window is { IsVisible: true } w && w.WindowState != WindowState.Minimized) return;
+        _trayIcon.ShowBalloonTip(5000, "Cast Sound",
+            $"Reconnecting to {e.Name}… ({e.Attempt} of {e.Max})", ToolTipIcon.Info);
     }
 
     private void OnDevicesChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -106,8 +130,32 @@ public partial class App : Application
         if (e.OldItems != null)
             foreach (DeviceViewModel d in e.OldItems) d.PropertyChanged -= OnDevicePropertyChanged;
         if (e.NewItems != null)
+        {
             foreach (DeviceViewModel d in e.NewItems) d.PropertyChanged += OnDevicePropertyChanged;
+            NotifyNewDevices(e.NewItems.OfType<DeviceViewModel>().ToList());
+        }
         UpdateTrayIcon();
+    }
+
+    // Pop a tray notification when devices appear after launch while the window isn't in
+    // front — so a user working with CastDriver minimised learns a new target is available.
+    private void NotifyNewDevices(IReadOnlyList<DeviceViewModel> added)
+    {
+        if (_trayIcon == null || added.Count == 0) return;
+        if (AppSettings.Current.SuppressNotifications) return;
+
+        // Skip the initial discovery burst right after launch (those aren't "new").
+        if (DateTime.UtcNow - _startedAt < TimeSpan.FromSeconds(12)) return;
+
+        // Only notify when the window is hidden to the tray or minimised — if it's on screen
+        // the user can already see the list update.
+        if (_window is { IsVisible: true } w && w.WindowState != WindowState.Minimized) return;
+
+        var text = added.Count == 1
+            ? $"New device to cast to found: {added[0].Name}"
+            : $"{added.Count} new cast devices found";
+
+        _trayIcon.ShowBalloonTip(5000, "Cast Sound", text, ToolTipIcon.Info);
     }
 
     private void OnDevicePropertyChanged(object? sender, PropertyChangedEventArgs e)

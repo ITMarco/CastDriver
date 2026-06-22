@@ -149,14 +149,30 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="{Binding UpdateText}"
-                               Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"
-                               VerticalAlignment="Center" TextWrapping="Wrap"/>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="{Binding UpdateText}"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12"
+                                   FontWeight="SemiBold" TextWrapping="Wrap"/>
+                        <TextBlock Text="{Binding UpdateFeature}"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11"
+                                   TextWrapping="Wrap" Margin="0,2,0,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding UpdateFeature}" Value="">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
                     <Button Grid.Column="1"
                             Content="Download"
                             Command="{Binding OpenUpdateCommand}"
                             Style="{StaticResource PrimaryButtonStyle}"
-                            FontSize="12" Padding="10,4"/>
+                            FontSize="12" Padding="10,4"
+                            VerticalAlignment="Center"/>
                 </Grid>
             </Border>
 
@@ -481,6 +497,9 @@
                                                     <DataTrigger Binding="{Binding IsConnecting}" Value="True">
                                                         <Setter Property="Fill" Value="#FFFFD60A"/>
                                                     </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsReconnecting}" Value="True">
+                                                        <Setter Property="Fill" Value="#FFFFD60A"/>
+                                                    </DataTrigger>
                                                     <DataTrigger Binding="{Binding HasError}" Value="True">
                                                         <Setter Property="Fill"
                                                                 Value="{DynamicResource RedBrush}"/>
@@ -532,6 +551,24 @@
                                                 </Style>
                                             </TextBlock.Style>
                                         </TextBlock>
+                                        <TextBlock Margin="0,1,0,0"
+                                                   FontSize="11"
+                                                   Foreground="#FFFFD60A"
+                                                   Text="{Binding ReconnectText}"
+                                                   Visibility="{Binding IsReconnecting,
+                                                                Converter={StaticResource BoolVis}}"/>
+                                        <!-- Sonos only: per-device fast/compatibility toggle -->
+                                        <Button HorizontalAlignment="Left" Margin="0,4,0,0"
+                                                Style="{StaticResource GhostButtonStyle}"
+                                                Padding="7,2" FontSize="10"
+                                                Cursor="Hand"
+                                                Content="{Binding SonosModeLabel}"
+                                                Command="{Binding DataContext.ToggleSonosModeCommand,
+                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip="Sonos streaming mode — tap to switch. Use Compatibility if this player is slow to start or drops out."
+                                                Visibility="{Binding IsSonos,
+                                                             Converter={StaticResource BoolVis}}"/>
                                     </StackPanel>
 
                                     <!-- Cast / Stop button -->
@@ -555,6 +592,11 @@
                                                     <DataTrigger Binding="{Binding IsConnecting}" Value="True">
                                                         <Setter Property="Content"    Value="…"/>
                                                         <Setter Property="IsEnabled"  Value="False"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsReconnecting}" Value="True">
+                                                        <Setter Property="Content"    Value="↻ Cancel"/>
+                                                        <Setter Property="Background" Value="#33FFD60A"/>
+                                                        <Setter Property="Foreground" Value="#FFFFD60A"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
