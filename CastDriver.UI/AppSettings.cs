@@ -20,8 +20,9 @@ public sealed class AppSettings
     // The selected audio source endpoint id (null = default render device).
     public string? SourceDeviceId { get; set; }
 
-    // Whether diagnostic logging is enabled (toggled from the Debug screen).
-    public bool LoggingEnabled { get; set; } = true;
+    // Whether diagnostic logging is enabled (toggled from the Debug screen). Off by default —
+    // users opt in when troubleshooting.
+    public bool LoggingEnabled { get; set; } = false;
 
     // Whether the window is pinned open (doesn't auto-hide on focus loss). On by default so
     // the app shows in the taskbar and stays open until the user explicitly unpins it.
@@ -88,5 +89,15 @@ public sealed class AppSettings
                 JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch { /* best-effort */ }
+    }
+
+    // Wipe all saved preferences back to factory defaults: delete the settings file, drop the
+    // in-memory copy (so any late Save() writes defaults, not stale values), and turn off the
+    // Windows startup entry. The caller is expected to restart the app so everything reloads.
+    public static void ResetAll()
+    {
+        _current = new AppSettings();
+        try { if (File.Exists(FilePath)) File.Delete(FilePath); } catch { /* best-effort */ }
+        try { StartupRegistration.Enabled = false; }            catch { /* best-effort */ }
     }
 }

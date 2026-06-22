@@ -123,6 +123,39 @@
         </Style.Triggers>
     </Style>
 
+    <!-- ── Sonos mode pill ── (thin accent outline so it clearly reads as clickable) -->
+    <Style x:Key="SonosToggleStyle" TargetType="Button">
+        <Setter Property="Foreground"          Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="FontSize"            Value="10"/>
+        <Setter Property="FontWeight"          Value="SemiBold"/>
+        <Setter Property="Padding"             Value="10,2"/>
+        <Setter Property="Cursor"              Value="Hand"/>
+        <Setter Property="HorizontalAlignment" Value="Left"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd"
+                            Background="Transparent"
+                            BorderBrush="{DynamicResource AccentBrush}"
+                            BorderThickness="1"
+                            CornerRadius="11"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#220A84FF"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#330A84FF"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ── Slider ── -->
     <Style x:Key="VolumeSliderStyle" TargetType="Slider">
         <Setter Property="Minimum"          Value="0"/>

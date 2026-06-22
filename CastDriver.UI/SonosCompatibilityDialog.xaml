@@ -19,11 +19,11 @@
                    Style="{StaticResource BodyStyle}"
                    Text="Compatibility mode uses the standard DLNA path. On Sonos that works best with the MP3 stream — and switching to MP3 often fixes slow or unreliable playback on its own, while keeping the faster optimised path. We recommend trying MP3 before turning on full compatibility mode for this player."/>
 
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
-            <Button Content="Don't show again" Click="OnDontShowAgain"
-                    Style="{StaticResource GhostButtonStyle}"
-                    Padding="12,6" FontSize="12" Margin="0,0,8,0"/>
-            <Button Content="Okay" Click="OnProceed"
+        <CheckBox x:Name="DontShowAgainCheck" Content="Don't show this again"
+                  FontSize="12" Margin="0,16,0,0"/>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Enable compatibility mode" Click="OnEnableCompatibility"
                     Style="{StaticResource GhostButtonStyle}"
                     Padding="14,6" FontSize="12" Margin="0,0,8,0"/>
             <Button Content="Change to MP3 and continue" Click="OnChangeMp3"

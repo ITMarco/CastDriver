@@ -492,20 +492,21 @@ public partial class MainViewModel : ObservableObject, IAsyncDisposable
             {
                 var dlg = new SonosCompatibilityDialog();
                 dlg.ShowDialog();
-                switch (dlg.Choice)
+
+                if (dlg.Choice == SonosHintChoice.Cancel) return; // backed out — stay on fast path
+
+                if (dlg.DontShowAgain)
                 {
-                    case SonosHintChoice.Cancel:
-                        return; // backed out — stay on the fast path
-                    case SonosHintChoice.ChangeToMp3:
-                        SelectedCodec = Mp3Option; // switches codec + restarts active casts
-                        return;                    // keep fast path; don't enable compatibility
-                    case SonosHintChoice.DontShowAgain:
-                        _settings.SuppressSonosMp3Hint = true;
-                        _settings.Save();
-                        break;                     // fall through and enable compatibility
-                    case SonosHintChoice.Proceed:
-                        break;                     // enable compatibility
+                    _settings.SuppressSonosMp3Hint = true;
+                    _settings.Save();
                 }
+
+                if (dlg.Choice == SonosHintChoice.ChangeToMp3)
+                {
+                    SelectedCodec = Mp3Option; // switches codec + restarts active casts
+                    return;                    // keep fast path; don't enable compatibility
+                }
+                // else EnableCompatibility — fall through
             }
             vm.SonosCompatibilityMode = true;      // persists + updates the device
         }

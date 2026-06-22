@@ -4,13 +4,15 @@
   and publish a GitHub release with both builds attached.
 
 .EXAMPLE
-  ./release.ps1            # bump minor (1.2.0 -> 1.3.0)
-  ./release.ps1 -Major     # bump major (1.3.0 -> 2.0.0)
+  ./release.ps1            # bump minor (1.2.0 -> 1.3.0), tag v1.3
+  ./release.ps1 -Major     # bump major (1.3.0 -> 2.0.0), tag v2.0
+  ./release.ps1 -Patch     # bump patch for a bugfix (1.13.0 -> 1.13.1), tag v1.13.1
   ./release.ps1 1.5        # set an explicit version
 #>
 param(
     [string]$Version = "",   # explicit "major.minor[.patch]"; empty = bump minor
     [switch]$Major,          # bump major instead of minor
+    [switch]$Patch,          # bump patch (third number) for a bugfix release
     [string]$Feature = ""    # headline feature shown in the in-app update banner
 )
 
@@ -24,12 +26,17 @@ $verNode  = $xml.SelectSingleNode('//Version')
 if (-not $verNode) { throw "No <Version> element in $csproj" }
 $cur = [version]$verNode.InnerText
 
-if ($Version)   { $nv = [version]($(if ($Version -match '\.') { $Version } else { "$Version.0" })) }
-elseif ($Major) { $nv = [version]"$($cur.Major + 1).0.0" }
-else            { $nv = [version]"$($cur.Major).$($cur.Minor + 1).0" }
+if     ($Version) { $nv = [version]($(if ($Version -match '\.') { $Version } else { "$Version.0" })) }
+elseif ($Major)   { $nv = [version]"$($cur.Major + 1).0.0" }
+elseif ($Patch)   { $nv = [version]"$($cur.Major).$($cur.Minor).$([math]::Max($cur.Build,0) + 1)" }
+else              { $nv = [version]"$($cur.Major).$($cur.Minor + 1).0" }
 
-$newVer = "$($nv.Major).$($nv.Minor).$([math]::Max($nv.Build,0))"
-$tag    = "v$($nv.Major).$($nv.Minor)"
+$build  = [math]::Max($nv.Build, 0)
+$newVer = "$($nv.Major).$($nv.Minor).$build"
+# Patch releases tag as vMAJOR.MINOR.PATCH so the update check sees them as newer; minor/major
+# releases keep the clean vMAJOR.MINOR tag.
+$tag    = if ($build -gt 0) { "v$($nv.Major).$($nv.Minor).$build" }
+          else              { "v$($nv.Major).$($nv.Minor)" }
 Write-Host "Releasing $tag (version $newVer, was $cur)" -ForegroundColor Cyan
 
 # ── 2. Update csproj + commit + push ─────────────────────────────────────────

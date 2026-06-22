@@ -104,6 +104,33 @@ public partial class AboutWindow : Window
     private void OnOpenDebug(object sender, RoutedEventArgs e) =>
         new DebugWindow { Owner = this }.ShowDialog();
 
+    private void OnResetPreferences(object sender, RoutedEventArgs e)
+    {
+        var confirm = System.Windows.MessageBox.Show(this,
+            "Reset all preferences to their defaults? This clears your theme, Sonos streaming modes, " +
+            "notification and dialog choices, saved EQ presets, and other settings.\n\nThe app will restart.",
+            "Reset all preferences", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (confirm != MessageBoxResult.Yes) return;
+
+        AppSettings.ResetAll();
+
+        // Relaunch a fresh instance, then shut this one down so the defaults take effect.
+        // Published builds run as the .exe (ProcessPath is the app); a dev `dotnet App.dll`
+        // run has ProcessPath = the dotnet host, so relaunch the DLL through it instead.
+        var host = Environment.ProcessPath;
+        var dll  = System.Reflection.Assembly.GetEntryAssembly()?.Location;
+        if (host != null)
+        {
+            var underDotnet = Path.GetFileNameWithoutExtension(host)
+                                  .Equals("dotnet", StringComparison.OrdinalIgnoreCase);
+            var psi = underDotnet && !string.IsNullOrEmpty(dll)
+                ? new ProcessStartInfo(host, $"\"{dll}\"") { UseShellExecute = false }
+                : new ProcessStartInfo(host) { UseShellExecute = true };
+            Process.Start(psi);
+        }
+        System.Windows.Application.Current.Shutdown();
+    }
+
     private void OnClose(object sender, RoutedEventArgs e) => Close();
 
     private static void OpenUrl(string url)

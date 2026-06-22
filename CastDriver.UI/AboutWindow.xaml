@@ -102,11 +102,19 @@
 
                 <Separator Margin="0,12"/>
 
-                <Button Content="Debug screen…"
-                        Click="OnOpenDebug"
-                        Style="{StaticResource GhostButtonStyle}"
-                        Padding="12,6" FontSize="12"
-                        HorizontalAlignment="Left"/>
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="Debug screen…"
+                            Click="OnOpenDebug"
+                            Style="{StaticResource GhostButtonStyle}"
+                            Padding="12,6" FontSize="12"/>
+                    <Button Content="Reset all preferences…"
+                            Click="OnResetPreferences"
+                            Style="{StaticResource GhostButtonStyle}"
+                            Padding="12,6" FontSize="12" Margin="8,0,0,0"/>
+                </StackPanel>
+                <TextBlock Text="Resets everything to defaults (theme, Sonos modes, dialog choices, EQ presets…) and restarts the app."
+                           Style="{StaticResource SmallStyle}"
+                           TextWrapping="Wrap" Margin="0,6,0,0"/>
             </StackPanel>
         </Border>
 
