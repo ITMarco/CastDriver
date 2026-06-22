@@ -1,7 +1,7 @@
 # CastDriver
 
 
-**If you're an oldskool guy like me, listening to mp3/flac files using Mediamonkey, Winamp. VLC or orther local program that doesn't support casting, this might be for you. Because sometimes you just want to hear that music on the home stereo and not through your $50 Target speakers**
+**If you're an oldskool guy like me, you sometimes just prefer listening to mp3/flac files using Mediamonkey, Winamp, VLC or God forbid, Windows Media Player. The problem with those is that they don't support casting to your favourite audio system at your house. Well, this might be for you. Because sometimes you just want to hear that music on the home stereo and not through your $50 Target speakers**
 
 **So cast all your Windows PC audio to Chromecast, Google speaker groups, Sonos, and DLNA devices (smart TVs, AV receivers, networked speakers) — with a per-device mixer, a graphic equalizer, and no virtual audio driver required.**
 
