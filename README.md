@@ -61,10 +61,13 @@ CastDriver streams to anything that speaks **Google Cast** or **DLNA/UPnP** — 
 | Denon · Marantz (HEOS), Yamaha (MusicCast), Onkyo · Pioneer, Bluesound · NAD (BluOS) | some | ✅ | ✅ via DLNA |
 | NAS / PC media renderers (Kodi, etc.) | — | ✅ | ✅ |
 | **Apple HomePod / Apple TV** | — | — | ❌ AirPlay only — *not yet supported* |
-| **Amazon Echo / Fire** | — | — | ❌ closed ecosystem |
+| **Amazon Fire TV Stick / Fire TV** | — | via app | ⚠️ works once you add a receiver app — see note |
+| **Amazon Echo** (Alexa speakers) | — | — | ❌ closed ecosystem |
 | **Spotify Connect endpoints** | — | — | ❌ closed — see note |
 
 > **AirPlay** isn't supported yet — it's planned as a future milestone. Many AirPlay speakers also do Chromecast or DLNA, so try those in the meantime.
+>
+> **Amazon Fire TV** has no built-in Cast or DLNA, but it's Android-based, so a small **receiver app** turns it into a target. **AirReceiver** (~$5) and **AirScreen** (free) are the easiest — they add DLNA (plus AirPlay/Cast) receiving — but **any DLNA renderer app works**. Once it's running, the Fire TV shows up tagged **DLNA**; try the MP3 format if it's picky.
 >
 > **Spotify Connect and Amazon Echo are closed boxes.** A Spotify Connect receiver only plays what Spotify's own servers send it — there's no way to push your PC's audio into it. The upside: nearly all of these speakers *also* support Chromecast or DLNA, so you can reach them that way instead.
 
