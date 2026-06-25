@@ -48,6 +48,9 @@ if (git status --porcelain) {
     git commit -m "Release $tag"
 }
 git push origin main
+if ($LASTEXITCODE -ne 0) {
+    throw "git push failed — the remote has commits you don't have locally. Run 'git pull --rebase origin main', then re-run release.ps1. (Nothing was published.)"
+}
 
 # ── 3. Build both single-file builds ─────────────────────────────────────────
 $dist = "dist"
@@ -78,6 +81,33 @@ Copy-Item "$dist/standalone/CastDriver.UI.exe" "$dist/CastDriver-standalone.exe"
 $shaFramework  = (Get-FileHash "$dist/CastDriver.exe"            -Algorithm SHA256).Hash
 $shaStandalone = (Get-FileHash "$dist/CastDriver-standalone.exe" -Algorithm SHA256).Hash
 
+# Build the Windows installer (Inno Setup) — optional, so a release still works on a machine
+# without Inno Setup. Packages the standalone build as a per-user (no-admin) install.
+$iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+$haveInstaller = $false
+if (Test-Path $iscc) {
+    Write-Host "Building installer (Inno Setup)..." -ForegroundColor Cyan
+    & $iscc /Qp "/DAppVersion=$newVer" `
+        ("/DSourceExe=" + (Resolve-Path "$dist/CastDriver-standalone.exe").Path) `
+        ("/DIconFile="  + (Resolve-Path "CastDriver.UI/icon.ico").Path) `
+        ("/DOutputDir=" + (Resolve-Path "$dist").Path) `
+        "installer\CastDriver.iss"
+    if ($LASTEXITCODE -eq 0 -and (Test-Path "$dist/CastDriver-Setup.exe")) {
+        $shaSetup = (Get-FileHash "$dist/CastDriver-Setup.exe" -Algorithm SHA256).Hash
+        $haveInstaller = $true
+    } else {
+        Write-Warning "Installer build failed — releasing without it."
+    }
+} else {
+    Write-Warning "Inno Setup (ISCC.exe) not found — releasing without the installer."
+}
+
+# Optional installer lines, folded into the notes only when the installer was built.
+$installerDownload = if ($haveInstaller) {
+    "- **CastDriver-Setup.exe** (~69 MB) — one-click installer, no admin needed; adds Start Menu + optional desktop shortcut, with an uninstaller."
+} else { "" }
+$installerChecksum = if ($haveInstaller) { "- CastDriver-Setup.exe: $shaSetup" } else { "" }
+
 # ── 4. Get a GitHub token from the git credential store ──────────────────────
 $cred  = "protocol=https`nhost=github.com`n`n" | git credential fill 2>$null
 $token = ($cred | Where-Object { $_ -like 'password=*' }) -replace '^password=', ''
@@ -100,12 +130,14 @@ $featureLine
 Downloads:
 - **CastDriver.exe** (~4 MB) — needs the free .NET 10 Desktop Runtime (Windows x64): https://dotnet.microsoft.com/download/dotnet/10.0
 - **CastDriver-standalone.exe** (~73 MB) — runs anywhere, no .NET install required.
+$installerDownload
 
 On first run, allow CastDriver through Windows Firewall so devices can reach the stream.
 
 ### Checksums (SHA-256)
 - CastDriver.exe: $shaFramework
 - CastDriver-standalone.exe: $shaStandalone
+$installerChecksum
 "@
 
 $body = @{
@@ -122,8 +154,10 @@ $rel        = Invoke-RestMethod -Method Post -Headers $headers -ContentType "app
 # Build the upload URL from the release id (the upload_url template is fiddly to parse).
 $uploadBase = "https://uploads.github.com/repos/$repo/releases/$($rel.id)/assets"
 
-# ── 6. Upload both assets ────────────────────────────────────────────────────
-foreach ($asset in @("CastDriver.exe", "CastDriver-standalone.exe")) {
+# ── 6. Upload assets ─────────────────────────────────────────────────────────
+$assets = @("CastDriver.exe", "CastDriver-standalone.exe")
+if ($haveInstaller) { $assets += "CastDriver-Setup.exe" }
+foreach ($asset in $assets) {
     Write-Host "Uploading $asset..." -ForegroundColor Cyan
     Invoke-RestMethod -Method Post -Headers $headers -ContentType "application/octet-stream" `
         -Uri ("{0}?name={1}" -f $uploadBase, $asset) -InFile "$dist/$asset" | Out-Null
